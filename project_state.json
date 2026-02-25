@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 3,
+  "summary": "App with user management features, including a coordinator approval flow for new users.",
+  "architectural_notes": [],
+  "known_issues": [],
+  "isFixRequest": false,
+  "existing_features": [
+    {
+      "id": "feature-create-a-pending-users-section-in-the-user-management-page-or-as-a-dedicated-tab-visible-only-to-coordinators-and-admins-listing-all-users-with-pending-approval-status-with-an-approve-action-button-per-row",
+      "title": "Create a 'Pending Users' section in the User Management page (or as a dedicated tab) visible only to coordinators and admins, listing all users with pending approval status, with an 'Approve' action button per row.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-that-users-whose-profiles-are-in-pending-status-cannot-access-protected-pages-and-are-shown-a-your-account-is-awaiting-coordinator-approval-message-after-login",
+      "title": "Ensure that users whose profiles are in 'pending' status cannot access protected pages and are shown a 'Your account is awaiting coordinator approval' message after login.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Coordinator can approve new users",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Add a backend function that allows a coordinator (or admin) to approve a pending user profile, transitioning its status from 'pending' to 'approved' so the user gains access to the application.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "Museus Centro",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

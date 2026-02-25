@@ -1,0 +1,147 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* Navy-based institutional palette */
+    --background: 0.97 0.005 240;
+    --foreground: 0.18 0.03 250;
+
+    --card: 1 0 0;
+    --card-foreground: 0.18 0.03 250;
+
+    --popover: 1 0 0;
+    --popover-foreground: 0.18 0.03 250;
+
+    /* Navy primary */
+    --primary: 0.28 0.08 255;
+    --primary-foreground: 0.98 0 0;
+
+    /* Slate secondary */
+    --secondary: 0.92 0.01 240;
+    --secondary-foreground: 0.28 0.08 255;
+
+    /* Teal accent */
+    --accent: 0.55 0.12 195;
+    --accent-foreground: 0.98 0 0;
+
+    --muted: 0.93 0.008 240;
+    --muted-foreground: 0.5 0.02 250;
+
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+
+    --border: 0.88 0.015 240;
+    --input: 0.88 0.015 240;
+    --ring: 0.55 0.12 195;
+
+    /* Charts */
+    --chart-1: 0.28 0.08 255;
+    --chart-2: 0.55 0.12 195;
+    --chart-3: 0.65 0.15 160;
+    --chart-4: 0.72 0.12 80;
+    --chart-5: 0.62 0.18 30;
+
+    /* Sidebar - deep navy */
+    --sidebar: 0.22 0.07 258;
+    --sidebar-foreground: 0.92 0.01 240;
+    --sidebar-primary: 0.55 0.12 195;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.30 0.08 258;
+    --sidebar-accent-foreground: 0.92 0.01 240;
+    --sidebar-border: 0.30 0.06 258;
+    --sidebar-ring: 0.55 0.12 195;
+
+    /* Status colors */
+    --success: 0.62 0.15 155;
+    --warning: 0.72 0.18 75;
+  }
+
+  .dark {
+    --background: 0.14 0.03 255;
+    --foreground: 0.92 0.01 240;
+
+    --card: 0.18 0.04 255;
+    --card-foreground: 0.92 0.01 240;
+
+    --popover: 0.22 0.05 255;
+    --popover-foreground: 0.92 0.01 240;
+
+    --primary: 0.55 0.12 195;
+    --primary-foreground: 0.98 0 0;
+
+    --secondary: 0.25 0.05 255;
+    --secondary-foreground: 0.92 0.01 240;
+
+    --accent: 0.55 0.12 195;
+    --accent-foreground: 0.98 0 0;
+
+    --muted: 0.25 0.04 255;
+    --muted-foreground: 0.65 0.02 250;
+
+    --destructive: 0.704 0.191 22.216;
+    --destructive-foreground: 0.205 0 0;
+
+    --border: 1 0 0 / 12%;
+    --input: 1 0 0 / 15%;
+    --ring: 0.55 0.12 195;
+
+    --chart-1: 0.55 0.12 195;
+    --chart-2: 0.65 0.15 160;
+    --chart-3: 0.72 0.12 80;
+    --chart-4: 0.62 0.18 30;
+    --chart-5: 0.78 0.1 240;
+
+    --sidebar: 0.14 0.04 258;
+    --sidebar-foreground: 0.92 0.01 240;
+    --sidebar-primary: 0.55 0.12 195;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.20 0.05 258;
+    --sidebar-accent-foreground: 0.92 0.01 240;
+    --sidebar-border: 1 0 0 / 12%;
+    --sidebar-ring: 0.55 0.12 195;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  .form-section {
+    @apply bg-card rounded-lg border border-border p-6 space-y-4;
+  }
+
+  .form-section-title {
+    @apply text-sm font-semibold text-primary uppercase tracking-wider pb-2 border-b border-border;
+  }
+
+  .field-label {
+    @apply text-sm font-medium text-foreground;
+  }
+
+  .status-draft {
+    @apply bg-amber-100 text-amber-800 border border-amber-200;
+  }
+
+  .status-submitted {
+    @apply bg-blue-100 text-blue-800 border border-blue-200;
+  }
+
+  .status-approved {
+    @apply bg-green-100 text-green-800 border border-green-200;
+  }
+}

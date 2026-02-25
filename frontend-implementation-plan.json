@@ -1,0 +1,61 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Coordinator approval flow for new users - Frontend",
+  "requirements": [
+    {
+      "id": "REQ-2",
+      "summary": "Create a 'Pending Users' section in the User Management page visible only to coordinators and admins, listing all users with pending approval status, with an 'Approve' action button per row",
+      "acceptanceCriteria": [
+        "The section is only rendered for users with 'coordination' or 'administration' role.",
+        "Each row displays the pending user's name, role, museum, and registration date.",
+        "Clicking 'Approve' calls the approveUser backend function via a React Query mutation and shows a success or error toast.",
+        "After a successful approval, the user disappears from the pending list and appears in the active users list.",
+        "If there are no pending users, a friendly empty-state message is displayed."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add a React Query mutation hook useApproveUser that calls actor.approveUser(user) and invalidates the ['allUserProfiles'] and ['approvals'] query keys on success. Also add useGetAllUserProfiles hook if not present to fetch the full user list including approval status."
+        },
+        {
+          "path": "frontend/src/pages/UserManagementPage.tsx",
+          "operation": "modify",
+          "description": "Add a new 'Pending Users' section above or alongside the existing user list table. Filter allUserProfiles by approvalStatus === 'pending'. Render a table with columns for name, role, museum, and an 'Approve' button. Wire the approve button to the useApproveUser mutation and display toast notifications for success/error. Show an empty-state message when no pending users exist. Ensure the section is only visible to users with coordination or administration appRole."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Ensure that users whose profiles are in 'pending' status cannot access protected pages and are shown a 'Your account is awaiting coordinator approval' message after login",
+      "acceptanceCriteria": [
+        "After a new user completes profile setup, if their status is pending, they are redirected to or shown a pending-approval screen instead of the main dashboard.",
+        "The pending-approval screen displays a clear message indicating they must wait for coordinator approval.",
+        "Once approved, the user can log in and access the application normally."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add a useIsCallerApproved React Query hook that calls actor.isCallerApproved() and caches the result under ['isCallerApproved']. Enable the query only when the actor is available and the user is authenticated."
+        },
+        {
+          "path": "frontend/src/pages/PendingApprovalPage.tsx",
+          "operation": "create",
+          "description": "Create a new page component that displays a centered message informing the user their account is pending coordinator approval. Include the Museus Centro branding (logo from frontend/public/assets/generated/museus-centro-logo.dim_256x256.png) and a brief explanation that they must wait for a coordinator to approve their profile before accessing the application. Provide a logout button using the useInternetIdentity hook."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "After profile setup is complete and the user is authenticated, check the isCallerApproved status using the useIsCallerApproved hook. If the user is not approved (and not an admin/coordinator), redirect them to the PendingApprovalPage route instead of allowing access to protected routes. Ensure the pending-approval check runs after the profile setup modal is dismissed. Wire the PendingApprovalPage into the router configuration."
+        },
+        {
+          "path": "frontend/src/components/Sidebar.tsx",
+          "operation": "modify",
+          "description": "If the user is not approved (checked via useIsCallerApproved), do not render navigation items or show a minimal sidebar with only logout. This prevents pending users from navigating to protected pages via the sidebar."
+        }
+      ]
+    }
+  ]
+}

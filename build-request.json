@@ -1,0 +1,79 @@
+{
+  "kind": "build_request",
+  "title": "Coordinator approval flow for new users",
+  "projectName": "Museus Centro",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "text": "Add a backend function that allows a coordinator (or admin) to approve a pending user profile, transitioning its status from 'pending' to 'approved' so the user gains access to the application.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "crie funcao para coordenaco aprovar novos usuarios"
+        ]
+      },
+      "acceptanceCriteria": [
+        "A new public function (e.g., approveUser) accepts a user principal and updates that user's profile status to approved.",
+        "Only callers with the 'coordination' or 'administration' role can invoke this function; others receive an #unauthorized error.",
+        "Attempting to approve an already-approved user returns a descriptive error.",
+        "Attempting to approve a non-existent user returns a descriptive error."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Create a 'Pending Users' section in the User Management page (or as a dedicated tab) visible only to coordinators and admins, listing all users with pending approval status, with an 'Approve' action button per row.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "crie funcao para coordenaco aprovar novos usuarios"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The section is only rendered for users with 'coordination' or 'administration' role.",
+        "Each row displays the pending user's name, role, museum, and registration date.",
+        "Clicking 'Approve' calls the approveUser backend function via a React Query mutation and shows a success or error toast.",
+        "After a successful approval, the user disappears from the pending list and appears in the active users list.",
+        "If there are no pending users, a friendly empty-state message is displayed."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Ensure that users whose profiles are in 'pending' status cannot access protected pages and are shown a 'Your account is awaiting coordinator approval' message after login.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "crie funcao para coordenaco aprovar novos usuarios"
+        ]
+      },
+      "acceptanceCriteria": [
+        "After a new user completes profile setup, if their status is pending, they are redirected to or shown a pending-approval screen instead of the main dashboard.",
+        "The pending-approval screen displays a clear message indicating they must wait for coordinator approval.",
+        "Once approved, the user can log in and access the application normally."
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not change the existing user role hierarchy (professional, coordination, administration).",
+    "All Motoko logic must remain in backend/main.mo (single-actor architecture).",
+    "Do not modify any files under frontend/src/hooks/ or frontend/src/components/ui."
+  ],
+  "nonGoals": [
+    "Email or push notifications to the coordinator when a new user registers.",
+    "Bulk approval of multiple users at once.",
+    "A dedicated rejection/denial flow with reasons (approval only for now)."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}
