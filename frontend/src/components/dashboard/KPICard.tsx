@@ -1,45 +1,69 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  FileText,
+  Users,
+  Clock,
+  Target,
+  CheckCircle,
+  TrendingUp,
+  Accessibility,
+  Handshake,
+  BarChart3,
+} from 'lucide-react';
 
 interface KPICardProps {
   title: string;
-  value: string | number;
-  icon?: React.ReactNode;
-  variant?: 'default' | 'accent' | 'success' | 'warning';
+  value: string | number | undefined;
+  icon?: string;
   subtitle?: string;
+  variant?: 'default' | 'success' | 'warning' | 'destructive';
 }
 
-const VARIANT_STYLES = {
-  default: 'bg-card border-border',
-  accent: 'bg-primary/5 border-primary/20',
-  success: 'bg-success/5 border-success/20',
-  warning: 'bg-warning/5 border-warning/20',
-};
+function getIcon(icon: string | undefined) {
+  switch (icon) {
+    case 'file': return <FileText className="h-5 w-5" />;
+    case 'users': return <Users className="h-5 w-5" />;
+    case 'clock': return <Clock className="h-5 w-5" />;
+    case 'target': return <Target className="h-5 w-5" />;
+    case 'check': return <CheckCircle className="h-5 w-5" />;
+    case 'progress': return <TrendingUp className="h-5 w-5" />;
+    case 'accessibility': return <Accessibility className="h-5 w-5" />;
+    case 'handshake': return <Handshake className="h-5 w-5" />;
+    default: return <BarChart3 className="h-5 w-5" />;
+  }
+}
 
-const ICON_STYLES = {
-  default: 'bg-primary/10 text-primary',
-  accent: 'bg-primary/15 text-primary',
-  success: 'bg-success/15 text-success',
-  warning: 'bg-warning/15 text-warning',
-};
+function getVariantClasses(variant: string | undefined) {
+  switch (variant) {
+    case 'success': return 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30';
+    case 'warning': return 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30';
+    case 'destructive': return 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30';
+    default: return 'text-primary bg-primary/10';
+  }
+}
 
-export default function KPICard({ title, value, icon, variant = 'default', subtitle }: KPICardProps) {
+export default function KPICard({ title, value, icon, subtitle, variant }: KPICardProps) {
+  const displayValue = value !== undefined && value !== null ? String(value) : '0';
+
   return (
-    <div className={cn('rounded-xl border p-5 transition-shadow hover:shadow-sm', VARIANT_STYLES[variant])}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</p>
-          <p className="text-2xl font-bold text-foreground mt-1 leading-none">{value}</p>
-          {subtitle && (
-            <p className="text-xs text-muted-foreground mt-1.5">{subtitle}</p>
-          )}
-        </div>
-        {icon && (
-          <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0', ICON_STYLES[variant])}>
-            {icon}
+    <Card>
+      <CardContent className="pt-4 pb-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate">
+              {title ?? ''}
+            </p>
+            <p className="text-2xl font-bold text-foreground mt-1">{displayValue}</p>
+            {subtitle && (
+              <p className="text-xs text-muted-foreground mt-1 truncate">{subtitle}</p>
+            )}
           </div>
-        )}
-      </div>
-    </div>
+          <div className={`p-2 rounded-lg shrink-0 ${getVariantClasses(variant)}`}>
+            {getIcon(icon)}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

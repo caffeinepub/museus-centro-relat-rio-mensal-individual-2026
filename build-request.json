@@ -1,35 +1,162 @@
 {
   "kind": "build_request",
-  "title": "Remove transparency from dropdown lists",
-  "priority": "normal",
+  "title": "Add Report Editing Area, File Management Tab, File-Report Linking, and Fix Dashboard",
+  "projectName": "Museus Centro Reports",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Remove transparency from all dropdown/select lists throughout the application. All dropdown menus, select popover content, and suspended lists must have a fully opaque background (no transparency or backdrop opacity). This applies to all Select, Popover, DropdownMenu, and similar overlay components used across every page and component in the frontend.",
-      "target": "frontend",
+      "text": "Implement a backend data model and API for file attachments: store file metadata (id, name, type, size, uploadedAt, uploader, base64 content) in stable storage. Expose CRUD operations: uploadFile, listFiles, deleteFile, getFile.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-latest"
+          "msg-4",
+          "msg-6"
         ],
         "quotes": [
-          "retire a transparencia nas listas suspemsas"
+          "aba com gestao de arquivos que subiram",
+          "upload de ficheiros (PDFs, imagens, documentos) com listagem completa"
         ]
       },
       "acceptanceCriteria": [
-        "All dropdown/select lists render with a fully opaque background — no see-through or semi-transparent effect.",
-        "The fix applies consistently across all pages: ReportsListPage, MonthYearSelector, ApprovalsPage, DashboardPage, ActivityFormPage, ReportFormPage, UserManagementPage, and any other page with dropdowns.",
-        "The opaque background works correctly in both light and dark themes.",
-        "No other UI elements are affected by this change."
+        "Files can be uploaded and stored as base64 blobs in stable memory",
+        "listFiles returns all uploaded files with metadata",
+        "deleteFile removes the file from storage",
+        "getFile retrieves a single file by ID"
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Implement a backend API for linking files to reports: store a many-to-many association between file IDs and report IDs. Expose linkFileToReport(fileId, reportId), unlinkFileFromReport(fileId, reportId), and getFilesForReport(reportId) operations.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-4",
+          "msg-6"
+        ],
+        "quotes": [
+          "possibilidade de vincular a relatorios antigos",
+          "Vinculação de arquivos a relatórios: associar arquivos existentes a relatórios antigos e novos"
+        ]
+      },
+      "acceptanceCriteria": [
+        "A file can be linked to one or more reports (including existing/old reports)",
+        "getFilesForReport returns all files associated with a given report ID",
+        "Unlinking removes the association without deleting the file"
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Add React Query hooks in useQueries.ts for all new file and file-report-link backend operations: useUploadFile, useListFiles, useDeleteFile, useLinkFileToReport, useUnlinkFileFromReport, useFilesForReport.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4",
+          "msg-6"
+        ]
+      },
+      "acceptanceCriteria": [
+        "All hooks call the corresponding backend actor methods",
+        "Mutation hooks invalidate relevant queries on success",
+        "Error states are handled gracefully"
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Create a File Management tab/page accessible from the sidebar (for coordinators and admins). The page must display a list of all uploaded files with columns for name, type, size, upload date, and uploader. Include an upload button that opens a file picker (accepting PDFs, images, and documents), uploads the selected file as base64, and shows a progress/loading state. Each file row must have a delete button with confirmation.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4",
+          "msg-6"
+        ],
+        "quotes": [
+          "aba com gestao de arquivos que subiram com possibilidade de vincular a relat",
+          "upload de ficheiros (PDFs, imagens, documentos) com listagem completa"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The sidebar shows a 'File Management' or 'Arquivos' navigation link",
+        "The page lists all uploaded files in a table or card grid",
+        "Files can be uploaded via a file picker button",
+        "Files can be deleted with a confirmation step",
+        "Empty state is shown when no files exist"
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "text": "Add a file linking section inside the report view/edit page (ReportFormPage or a dedicated report detail view). Display the files currently linked to the report and provide a dialog/modal to browse all uploaded files and link/unlink them to the current report. This must work for both new and existing (old) reports.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4",
+          "msg-6"
+        ],
+        "quotes": [
+          "possibilidade de vincular a relatorios antigos",
+          "Vinculação de arquivos a relatórios: associar arquivos existentes a relatórios antigos e novos"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Each report view/edit page shows a 'Linked Files' section",
+        "A button opens a modal listing all available files with link/unlink toggles",
+        "Currently linked files are highlighted or checked in the modal",
+        "Linking and unlinking updates immediately via mutation hooks",
+        "Works on both newly created and pre-existing reports"
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "text": "Audit and fix all errors in DashboardPage.tsx and its child chart/KPI components. Ensure all data fetching hooks handle loading and error states without crashing. Fix any undefined/null access errors, incorrect query usage, or missing null checks across KPICard, MonthlyEvolutionChart, ActivitiesByMuseumChart, AudienceByProfileChart, PlannedVsAchievedChart, ReportsByMonthChart, ReportsByMuseumChart, and PublicoGeralCard.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "o dashboard estava com erro corrija tbm",
+          "Fix dashboard errors and optimize overall functionality"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Dashboard page renders without runtime errors when data is available",
+        "Dashboard renders a proper loading state while data is being fetched",
+        "Dashboard renders a proper empty/error state when backend returns no data or an error",
+        "All chart components handle empty data arrays without crashing",
+        "KPI cards display correct values"
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "text": "Optimize overall application robustness: add null/undefined guards throughout all pages and components, ensure all React Query mutations display toast or inline error messages on failure, and remove any console errors related to missing keys, invalid types, or unhandled promise rejections.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "faça hard test e corrija erros otimizando o funcionamento"
+        ]
+      },
+      "acceptanceCriteria": [
+        "No uncaught runtime errors in normal user flows",
+        "Failed mutations show user-facing error feedback",
+        "No React key warnings or prop-type errors in the console",
+        "All list renders use stable unique keys"
       ]
     }
   ],
   "constraints": [
-    "Do not modify any files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui.",
-    "Do not alter any backend logic or data models."
+    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui",
+    "All Motoko logic must remain in a single actor in backend/main.mo",
+    "File content must be stored as base64 Text in the backend (no external storage)",
+    "Preserve all existing report, activity, goal, and user management functionality"
   ],
   "nonGoals": [
-    "Changing any other visual styles beyond the dropdown/list background opacity.",
-    "Adding new features or modifying existing report/export functionality."
+    "Real-time file sync or WebSocket notifications",
+    "External cloud storage integration",
+    "File versioning or diff history",
+    "PDF/document preview rendering inside the app"
   ],
   "imageRequirements": {
     "required": [],

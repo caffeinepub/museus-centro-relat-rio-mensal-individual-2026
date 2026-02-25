@@ -58,11 +58,11 @@ export default function ActivitiesList({ report, userRole }: ActivitiesListProps
     (isOwner && (report.status === Status.draft || report.status === Status.requiresAdjustment));
 
   const handleAddActivity = () => {
-    navigate({ to: '/activities/new', search: { reportId: report.id } });
+    navigate({ to: '/reports/$reportId/activities/new', params: { reportId: report.id } });
   };
 
   const handleEditActivity = (activityId: string) => {
-    navigate({ to: '/activities/$activityId', params: { activityId } });
+    navigate({ to: '/reports/$reportId/activities/$activityId', params: { reportId: report.id, activityId } });
   };
 
   if (isLoading) {
@@ -136,7 +136,6 @@ export default function ActivitiesList({ report, userRole }: ActivitiesListProps
                     </div>
 
                     <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                      {/* Hours */}
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {activity.hoursNotApplicable
@@ -145,21 +144,14 @@ export default function ActivitiesList({ report, userRole }: ActivitiesListProps
                           ? `${activity.dedicatedHours.toString()}h`
                           : '—'}
                       </span>
-
-                      {/* Audience */}
                       <span className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
                         {activity.totalAudience.toString()} pessoas
                       </span>
-
-                      {/* Museum */}
                       <span>{getMuseumLabel(activity.museum)}</span>
-
-                      {/* Product */}
                       <span>{productRealisedLabel(activity.productRealised)}</span>
                     </div>
 
-                    {/* Audience breakdown */}
                     {Number(activity.totalAudience) > 0 && (
                       <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-muted-foreground/80">
                         {Number(activity.children) > 0 && <span>Crianças: {activity.children.toString()}</span>}
@@ -170,7 +162,6 @@ export default function ActivitiesList({ report, userRole }: ActivitiesListProps
                       </div>
                     )}
 
-                    {/* Goal info */}
                     {activity.classification === Classification.goalLinked && activity.goalNumber != null && (
                       <div className="mt-1.5 text-xs text-muted-foreground">
                         <span className="font-medium">Meta #{activity.goalNumber.toString()}</span>
@@ -180,14 +171,12 @@ export default function ActivitiesList({ report, userRole }: ActivitiesListProps
                       </div>
                     )}
 
-                    {/* Cancellation reason */}
                     {activity.status === ActivityStatus.cancelled && activity.cancellationReason && (
                       <div className="mt-1.5 text-xs text-destructive/80">
                         Motivo: {activity.cancellationReason}
                       </div>
                     )}
 
-                    {/* Partnership */}
                     {activity.hadPartnership && activity.partnerName && (
                       <div className="mt-1.5 text-xs text-muted-foreground">
                         Parceria: {activity.partnerName}
@@ -200,7 +189,7 @@ export default function ActivitiesList({ report, userRole }: ActivitiesListProps
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 flex-shrink-0"
+                      className="h-7 w-7 shrink-0"
                       onClick={() => handleEditActivity(activity.id)}
                     >
                       <Edit2 className="h-3.5 w-3.5" />

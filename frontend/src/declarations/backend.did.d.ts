@@ -174,6 +174,15 @@ export type EvidenceType = { 'report' : null } |
   { 'attendanceList' : null } |
   { 'photos' : null };
 export type ExternalBlob = Uint8Array;
+export interface FileAttachment {
+  'id' : string,
+  'name' : string,
+  'size' : bigint,
+  'mimeType' : string,
+  'base64Content' : string,
+  'uploader' : Principal,
+  'uploadedAt' : Time,
+}
 export interface FullUserProfile {
   'principal' : Principal,
   'appRole' : AppUserRole,
@@ -355,6 +364,11 @@ export interface _SERVICE {
    */
   'deleteActivity' : ActorMethod<[ActivityId], undefined>,
   /**
+   * / Delete a file and remove its report links.
+   * / Only the uploader, coordinators, or admins can delete a file.
+   */
+  'deleteFile' : ActorMethod<[string], undefined>,
+  /**
    * / Delete a report.
    * / Coordinators and admins can delete any report.
    * / Professionals can only delete their own reports in draft or
@@ -376,6 +390,16 @@ export interface _SERVICE {
     [DashboardFilter],
     CoordinationDashboard
   >,
+  /**
+   * / Get a specific file by ID.
+   * / Only the uploader, coordinators, or admins can retrieve a file.
+   */
+  'getFile' : ActorMethod<[string], [] | [FileAttachment]>,
+  /**
+   * / Get all files linked to a report.
+   * / The caller must be able to read the report (own it or be a coordinator/admin).
+   */
+  'getFilesForReport' : ActorMethod<[ReportId], Array<FileAttachment>>,
   'getReport' : ActorMethod<[ReportId], Report>,
   /**
    * / Export a report with all its activities.
@@ -394,9 +418,21 @@ export interface _SERVICE {
    * / Returns true for admins, coordinators, and explicitly approved users.
    */
   'isCallerApproved' : ActorMethod<[], boolean>,
+  /**
+   * / Link a file to a report.
+   * / The caller must be able to write to the report (own it or be a coordinator/admin),
+   * / and must own the file (or be a coordinator/admin).
+   */
+  'linkFileToReport' : ActorMethod<[string, ReportId], undefined>,
   'listAllActivities' : ActorMethod<[], Array<Activity>>,
   'listAllUserProfiles' : ActorMethod<[], Array<FullUserProfile>>,
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
+  /**
+   * / List files.
+   * / Coordinators and admins see all files.
+   * / Regular users only see their own files.
+   */
+  'listFiles' : ActorMethod<[], Array<FileAttachment>>,
   'listGoals' : ActorMethod<[], Array<Goal>>,
   /**
    * / Returns all user profiles that are fully registered and approved,
@@ -435,6 +471,11 @@ export interface _SERVICE {
   'submitReport' : ActorMethod<[ReportId], undefined>,
   'toggleGoalActive' : ActorMethod<[bigint], undefined>,
   /**
+   * / Unlink a file from a report.
+   * / The caller must be able to write to the report (own it or be a coordinator/admin).
+   */
+  'unlinkFileFromReport' : ActorMethod<[string, ReportId], undefined>,
+  /**
    * / Update an activity.
    * / Coordinators and admins can edit any activity.
    * / Professionals can only edit activities belonging to their own reports
@@ -468,6 +509,11 @@ export interface _SERVICE {
    * / otherwise it is downgraded to #coordinator.
    */
   'updateUserRole' : ActorMethod<[Principal, AppUserRole], undefined>,
+  /**
+   * / Upload a new file.
+   * / The uploader field must match the caller to prevent impersonation.
+   */
+  'uploadFile' : ActorMethod<[FileAttachment], string>,
   'uploadSignature' : ActorMethod<[ReportId, string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;

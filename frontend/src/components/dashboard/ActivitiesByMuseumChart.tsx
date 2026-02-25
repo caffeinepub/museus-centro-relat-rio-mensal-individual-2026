@@ -1,49 +1,89 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import { Building2 } from 'lucide-react';
 
 interface ActivitiesByMuseumChartProps {
-  data: Array<[string, bigint]>;
+  data: Array<[string, bigint]> | undefined | null;
 }
 
-const COLORS = ['#1c2864', '#0d9488', '#4338ca', '#0f766e', '#3730a3', '#115e59'];
-
 export default function ActivitiesByMuseumChart({ data }: ActivitiesByMuseumChartProps) {
-  const chartData = data.map(([museum, count]) => ({
-    museum: museum.length > 20 ? museum.substring(0, 20) + '…' : museum,
-    fullName: museum,
-    atividades: Number(count),
-  }));
-
-  if (chartData.length === 0) {
+  if (!Array.isArray(data) || data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-sm text-muted-foreground">
-        Nenhum dado disponível
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            Atividades por Museu
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+            Sem dados disponíveis
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
+  const chartData = data.map(([museum, count]) => ({
+    museum: museum ? (museum.length > 14 ? museum.slice(0, 14) + '…' : museum) : 'N/A',
+    fullName: museum ?? 'N/A',
+    atividades: Number(count ?? 0),
+  }));
+
   return (
-    <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 40 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-        <XAxis
-          dataKey="museum"
-          tick={{ fontSize: 11, fill: '#64748b' }}
-          angle={-30}
-          textAnchor="end"
-          interval={0}
-        />
-        <YAxis tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} />
-        <Tooltip
-          formatter={(value: number) => [value, 'Atividades']}
-          labelFormatter={(label: string, payload: any[]) => payload?.[0]?.payload?.fullName ?? label}
-          contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
-        />
-        <Bar dataKey="atividades" radius={[4, 4, 0, 0]}>
-          {chartData.map((_, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Building2 className="h-4 w-4" />
+          Atividades por Museu
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+            <XAxis
+              dataKey="museum"
+              tick={{ fontSize: 10 }}
+              className="text-muted-foreground"
+            />
+            <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" />
+            <Tooltip
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const item = payload[0]?.payload;
+                return (
+                  <div
+                    style={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <p className="font-medium">{item?.fullName ?? ''}</p>
+                    <p className="text-muted-foreground">
+                      Atividades: {item?.atividades ?? 0}
+                    </p>
+                  </div>
+                );
+              }}
+            />
+            <Bar dataKey="atividades" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
   );
 }

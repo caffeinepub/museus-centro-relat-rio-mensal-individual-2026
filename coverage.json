@@ -1,37 +1,152 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-25T21:45:58.586Z",
+  "generatedAt": "2026-02-25T23:34:06.647Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 1,
-    "implemented": 1,
+    "total": 7,
+    "implemented": 5,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Remove transparency from all dropdown/select lists throughout the application. All dropdown menus, select popover content, and suspended lists must have a fully opaque background (no transparency or backdrop opacity). This applies to all Select, Popover, DropdownMenu, and similar overlay components used across every page and component in the frontend.",
+        "summary": "Implement a backend data model and API for file attachments: store file metadata (id, name, type, size, uploadedAt, uploader, base64 content) in stable storage. Expose CRUD operations: uploadFile, listFiles, deleteFile, getFile.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-2",
+        "summary": "Implement a backend API for linking files to reports: store a many-to-many association between file IDs and report IDs. Expose linkFileToReport(fileId, reportId), unlinkFileFromReport(fileId, reportId), and getFilesForReport(reportId) operations.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Add React Query hooks in useQueries.ts for all new file and file-report-link backend operations: useUploadFile, useListFiles, useDeleteFile, useLinkFileToReport, useUnlinkFileFromReport, useFilesForReport.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/index.css",
-          "frontend/tailwind.config.js"
+          "frontend/src/hooks/useQueries.ts"
         ],
         "matchedFiles": [
-          "frontend/src/index.css"
+          "frontend/src/hooks/useQueries.ts"
+        ]
+      },
+      {
+        "id": "REQ-4",
+        "summary": "Create a File Management tab/page accessible from the sidebar (for coordinators and admins). The page must display a list of all uploaded files with columns for name, type, size, upload date, and uploader. Include an upload button that opens a file picker (accepting PDFs, images, and documents), uploads the selected file as base64, and shows a progress/loading state. Each file row must have a delete button with confirmation.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/FileManagementPage.tsx",
+          "frontend/src/App.tsx",
+          "frontend/src/components/Sidebar.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/FileManagementPage.tsx",
+          "frontend/src/App.tsx",
+          "frontend/src/components/Sidebar.tsx"
+        ]
+      },
+      {
+        "id": "REQ-5",
+        "summary": "Add a file linking section inside the report view/edit page (ReportFormPage or a dedicated report detail view). Display the files currently linked to the report and provide a dialog/modal to browse all uploaded files and link/unlink them to the current report. This must work for both new and existing (old) reports.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/ReportFilesSection.tsx",
+          "frontend/src/pages/ReportFormPage.tsx",
+          "frontend/src/pages/ReportsListPage.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/ReportFilesSection.tsx",
+          "frontend/src/pages/ReportsListPage.tsx"
+        ]
+      },
+      {
+        "id": "REQ-6",
+        "summary": "Audit and fix all errors in DashboardPage.tsx and its child chart/KPI components. Ensure all data fetching hooks handle loading and error states without crashing. Fix any undefined/null access errors, incorrect query usage, or missing null checks across KPICard, MonthlyEvolutionChart, ActivitiesByMuseumChart, AudienceByProfileChart, PlannedVsAchievedChart, ReportsByMonthChart, ReportsByMuseumChart, and PublicoGeralCard.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/DashboardPage.tsx",
+          "frontend/src/components/dashboard/KPICard.tsx",
+          "frontend/src/components/dashboard/MonthlyEvolutionChart.tsx",
+          "frontend/src/components/dashboard/ActivitiesByMuseumChart.tsx",
+          "frontend/src/components/dashboard/AudienceByProfileChart.tsx",
+          "frontend/src/components/dashboard/PlannedVsAchievedChart.tsx",
+          "frontend/src/components/dashboard/ReportsByMonthChart.tsx",
+          "frontend/src/components/dashboard/ReportsByMuseumChart.tsx",
+          "frontend/src/components/dashboard/PublicoGeralCard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/DashboardPage.tsx",
+          "frontend/src/components/dashboard/KPICard.tsx",
+          "frontend/src/components/dashboard/MonthlyEvolutionChart.tsx",
+          "frontend/src/components/dashboard/ActivitiesByMuseumChart.tsx",
+          "frontend/src/components/dashboard/AudienceByProfileChart.tsx",
+          "frontend/src/components/dashboard/PlannedVsAchievedChart.tsx",
+          "frontend/src/components/dashboard/ReportsByMonthChart.tsx",
+          "frontend/src/components/dashboard/ReportsByMuseumChart.tsx",
+          "frontend/src/components/dashboard/PublicoGeralCard.tsx"
+        ]
+      },
+      {
+        "id": "REQ-7",
+        "summary": "Optimize overall application robustness: add null/undefined guards throughout all pages and components, ensure all React Query mutations display toast or inline error messages on failure, and remove any console errors related to missing keys, invalid types, or unhandled promise rejections.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/ReportsListPage.tsx",
+          "frontend/src/pages/ActivityFormPage.tsx",
+          "frontend/src/pages/ApprovalsPage.tsx",
+          "frontend/src/pages/ConsolidatedMuseumPage.tsx",
+          "frontend/src/pages/UserManagementPage.tsx",
+          "frontend/src/components/ActivitiesList.tsx",
+          "frontend/src/components/ApprovalDetailView.tsx",
+          "frontend/src/components/ProfileSetupModal.tsx",
+          "frontend/src/components/Sidebar.tsx",
+          "frontend/src/hooks/useQueries.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/ReportsListPage.tsx",
+          "frontend/src/pages/UserManagementPage.tsx",
+          "frontend/src/components/ActivitiesList.tsx",
+          "frontend/src/components/ApprovalDetailView.tsx",
+          "frontend/src/components/Sidebar.tsx",
+          "frontend/src/hooks/useQueries.ts"
         ]
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
     "build-request.json",
-    "build-template/README.md",
-    "caffeine.lock.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/index.css",
+    "frontend/src/App.tsx",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/components/ActivitiesList.tsx",
+    "frontend/src/components/ApprovalDetailView.tsx",
+    "frontend/src/components/Layout.tsx",
+    "frontend/src/components/ReportFilesSection.tsx",
+    "frontend/src/components/Sidebar.tsx",
+    "frontend/src/components/dashboard/ActivitiesByMuseumChart.tsx",
+    "frontend/src/components/dashboard/AudienceByProfileChart.tsx",
+    "frontend/src/components/dashboard/KPICard.tsx",
+    "frontend/src/components/dashboard/MonthlyEvolutionChart.tsx",
+    "frontend/src/components/dashboard/PlannedVsAchievedChart.tsx",
+    "frontend/src/components/dashboard/PublicoGeralCard.tsx",
+    "frontend/src/components/dashboard/ReportsByMonthChart.tsx",
+    "frontend/src/components/dashboard/ReportsByMuseumChart.tsx",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/DashboardPage.tsx",
+    "frontend/src/pages/FileManagementPage.tsx",
+    "frontend/src/pages/ReportsListPage.tsx",
+    "frontend/src/pages/UserManagementPage.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

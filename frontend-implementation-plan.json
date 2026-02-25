@@ -1,27 +1,197 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Remove transparency from dropdown lists",
+  "title": "Add Report Editing Area, File Management Tab, File-Report Linking, and Fix Dashboard",
   "requirements": [
     {
-      "id": "REQ-1",
-      "summary": "Remove transparency from all dropdown/select lists throughout the application by ensuring all Select, Popover, DropdownMenu, and similar overlay components have fully opaque backgrounds",
+      "id": "REQ-3",
+      "summary": "Add React Query hooks for file management and file-report linking operations",
       "acceptanceCriteria": [
-        "All dropdown/select lists render with a fully opaque background — no see-through or semi-transparent effect.",
-        "The fix applies consistently across all pages: ReportsListPage, MonthYearSelector, ApprovalsPage, DashboardPage, ActivityFormPage, ReportFormPage, UserManagementPage, and any other page with dropdowns.",
-        "The opaque background works correctly in both light and dark themes.",
-        "No other UI elements are affected by this change."
+        "All hooks call the corresponding backend actor methods",
+        "Mutation hooks invalidate relevant queries on success",
+        "Error states are handled gracefully"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/index.css",
+          "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Update CSS custom properties or add global override rules to ensure all dropdown/popover content (SelectContent, PopoverContent, DropdownMenuContent) renders with fully opaque backgrounds. Set background-opacity to 1.0 or add backdrop-filter: none to remove any transparency effects. Ensure the changes work in both light and dark themes by targeting the appropriate CSS variables or class selectors used by shadcn/ui components."
+          "description": "Add React Query hooks for file operations: useUploadFile (mutation with progress callback support), useListFiles (query), useDeleteFile (mutation), useGetFile (query), useLinkFileToReport (mutation), useUnlinkFileFromReport (mutation), and useFilesForReport (query). Each mutation hook must invalidate relevant queries on success (e.g., uploadFile and deleteFile invalidate 'files' query; link/unlink invalidate both 'files' and 'reportFiles' queries). Use the ExternalBlob class for file content handling. Add toast notifications for mutation success/failure states."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Create File Management page with upload, list, and delete capabilities",
+      "acceptanceCriteria": [
+        "The sidebar shows a 'File Management' or 'Arquivos' navigation link",
+        "The page lists all uploaded files in a table or card grid",
+        "Files can be uploaded via a file picker button",
+        "Files can be deleted with a confirmation step",
+        "Empty state is shown when no files exist"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/FileManagementPage.tsx",
+          "operation": "create",
+          "description": "Create a file management page for coordinators and admins. Display a table/grid of uploaded files with columns for name, type, size, upload date, and uploader (using Principal.toString() or fetched user profiles). Include an upload button that opens a native file picker accepting PDFs, images, and documents (e.g., accept='application/pdf,image/*,.doc,.docx,.xls,.xlsx'). On file selection, read the file as base64 using FileReader, construct a FileAttachment object with the caller's Principal as uploader, and call useUploadFile with progress tracking. Show a progress bar or loading state during upload. Each file row must have a delete button that opens a confirmation dialog before calling useDeleteFile. Display an empty state message ('Nenhum arquivo encontrado') when the file list is empty. Handle loading and error states from useListFiles gracefully."
         },
         {
-          "path": "frontend/tailwind.config.js",
+          "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "If transparency is coming from Tailwind theme configuration (e.g., OKLCH alpha channel in popover/dropdown color variables), update the relevant color definitions to ensure full opacity (alpha = 1). Review the custom theme tokens for popover, dropdown, or overlay-related colors and ensure they are defined without transparency."
+          "description": "Register a new route for File Management at '/files' or '/arquivos' that renders FileManagementPage. Ensure the route is protected by authentication guard and approval check (similar to existing routes). The route should be accessible to coordinators and admins only (check via useGetCallerUserProfile and filter by appRole)."
+        },
+        {
+          "path": "frontend/src/components/Sidebar.tsx",
+          "operation": "modify",
+          "description": "Add a navigation item for 'Gestão de Arquivos' or 'Arquivos' linking to the File Management page route. Display this item only for users with appRole 'coordination', 'coordinator', or 'administration'. Position the nav item logically in the menu (e.g., after Reports, before Admin sections)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "summary": "Add file linking section to report view/edit pages for associating files with reports",
+      "acceptanceCriteria": [
+        "Each report view/edit page shows a 'Linked Files' section",
+        "A button opens a modal listing all available files with link/unlink toggles",
+        "Currently linked files are highlighted or checked in the modal",
+        "Linking and unlinking updates immediately via mutation hooks",
+        "Works on both newly created and pre-existing reports"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/ReportFilesSection.tsx",
+          "operation": "create",
+          "description": "Create a reusable component for managing file links on a report. Accept reportId as a prop. Display a section titled 'Arquivos Vinculados' that lists currently linked files (fetched via useFilesForReport) with file name, type, size, and an unlink button. Include an 'Adicionar Arquivos' button that opens a dialog/modal. The modal should list all available files (from useListFiles) with checkboxes indicating which files are currently linked. Allow users to toggle checkboxes to link or unlink files, calling useLinkFileToReport or useUnlinkFileFromReport mutations. Show loading states while fetching or mutating. Display an empty state message when no files are linked. Ensure the component works for both new reports (after creation) and existing reports."
+        },
+        {
+          "path": "frontend/src/pages/ReportFormPage.tsx",
+          "operation": "modify",
+          "description": "Add the ReportFilesSection component to the report form page. Display it below the signature canvas or at the bottom of the form. Pass the current reportId as a prop. For new reports (before creation), hide the section or show a message explaining that files can be linked after the report is saved. After a new report is created and has an ID, re-render to show the file linking section. Ensure the section is visible when editing an existing report."
+        },
+        {
+          "path": "frontend/src/pages/ReportsListPage.tsx",
+          "operation": "modify",
+          "description": "Add a visual indicator (e.g., file icon badge or count) to each report card/row showing the number of linked files. Optionally, expand the report detail view to display linked file names or a link to manage files. Consider adding a quick action button to view/manage linked files directly from the list view."
+        }
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "summary": "Audit and fix all errors in DashboardPage and its child chart/KPI components",
+      "acceptanceCriteria": [
+        "Dashboard page renders without runtime errors when data is available",
+        "Dashboard renders a proper loading state while data is being fetched",
+        "Dashboard renders a proper empty/error state when backend returns no data or an error",
+        "All chart components handle empty data arrays without crashing",
+        "KPI cards display correct values"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/DashboardPage.tsx",
+          "operation": "modify",
+          "description": "Audit and fix all runtime errors. Ensure useCoordinationDashboard query is properly awaited and handles loading, error, and empty states. Add null/undefined checks before accessing dashboard.data properties. Wrap the entire dashboard content in conditional rendering: show a loading spinner when isLoading is true, show an error message when isError is true, and show an empty state message when data is null or undefined. Pass safe, non-null data to child components (KPICard, charts). Fix any prop mismatches or missing keys in list renders. Ensure all filter state (museum, month) is handled correctly and does not cause re-render loops."
+        },
+        {
+          "path": "frontend/src/components/dashboard/KPICard.tsx",
+          "operation": "modify",
+          "description": "Add null/undefined guards for all props. Ensure value prop is always rendered as a string or number (use fallback '0' or 'N/A' if undefined). Handle cases where icon or subtitle are missing gracefully. Avoid runtime errors if variant is undefined."
+        },
+        {
+          "path": "frontend/src/components/dashboard/MonthlyEvolutionChart.tsx",
+          "operation": "modify",
+          "description": "Add a check to ensure data prop is an array before rendering the chart. If data is null, undefined, or empty, display a fallback message ('Sem dados disponíveis'). Ensure month labels are correctly sorted and mapped using the labels utility. Avoid accessing undefined properties in the data array."
+        },
+        {
+          "path": "frontend/src/components/dashboard/ActivitiesByMuseumChart.tsx",
+          "operation": "modify",
+          "description": "Add a check to ensure data prop is an array before rendering. Handle empty arrays by displaying a fallback message. Ensure museum names are truncated safely without accessing undefined properties. Fix any key warnings by ensuring each bar/item has a unique stable key."
+        },
+        {
+          "path": "frontend/src/components/dashboard/AudienceByProfileChart.tsx",
+          "operation": "modify",
+          "description": "Add null/undefined checks for the data prop. If data is null or all profile counts are zero, display a fallback message ('Nenhum dado de público disponível'). Ensure the pie chart renders only when valid data exists. Fix any color mapping issues or missing keys in the data array."
+        },
+        {
+          "path": "frontend/src/components/dashboard/PlannedVsAchievedChart.tsx",
+          "operation": "modify",
+          "description": "Add guards to ensure data is an array and handle empty data gracefully. Display a message when no goal-linked activities exist. Ensure the chart does not crash when planned or achieved values are missing or null. Add fallback values (e.g., 0) for missing numeric fields."
+        },
+        {
+          "path": "frontend/src/components/dashboard/ReportsByMonthChart.tsx",
+          "operation": "modify",
+          "description": "Add a check for data prop being an array. Handle empty data by showing a fallback message. Ensure month labels are sorted correctly and mapped to Portuguese labels using the labels utility. Fix any undefined access errors in the custom tooltip or data mapping."
+        },
+        {
+          "path": "frontend/src/components/dashboard/ReportsByMuseumChart.tsx",
+          "operation": "modify",
+          "description": "Add a check for data prop being an array. Handle empty data with a fallback message. Ensure museum names are truncated and displayed correctly without accessing undefined properties. Fix any key warnings or tooltip errors."
+        },
+        {
+          "path": "frontend/src/components/dashboard/PublicoGeralCard.tsx",
+          "operation": "modify",
+          "description": "Add null/undefined checks for the total audience query result. Handle loading, error, and empty states explicitly. Ensure the date range selectors (month, year) do not cause runtime errors when no data is available. Display '0' or 'N/A' when the query returns no data or fails."
+        }
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "summary": "Optimize overall application robustness with null guards, error feedback, and console error cleanup",
+      "acceptanceCriteria": [
+        "No uncaught runtime errors in normal user flows",
+        "Failed mutations show user-facing error feedback",
+        "No React key warnings or prop-type errors in the console",
+        "All list renders use stable unique keys"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/ReportsListPage.tsx",
+          "operation": "modify",
+          "description": "Add null/undefined guards for report and activity arrays. Ensure all list renders use stable unique keys (e.g., report.id, activity.id). Handle cases where reports or activities are undefined or empty. Add error boundary or try-catch blocks around PDF/Excel export functions. Display toast notifications for mutation failures (delete report, delete activity). Fix any console warnings related to missing keys or prop types."
+        },
+        {
+          "path": "frontend/src/pages/ActivityFormPage.tsx",
+          "operation": "modify",
+          "description": "Add null checks for all form field values before accessing nested properties. Ensure activity data is safely accessed when editing an existing activity. Handle cases where report or activity is not found. Display toast error messages when create or update mutations fail. Fix any console errors related to invalid types or missing required props."
+        },
+        {
+          "path": "frontend/src/pages/ApprovalsPage.tsx",
+          "operation": "modify",
+          "description": "Add null/undefined guards for report arrays and filter values. Ensure the report detail view handles missing or null report data. Display toast notifications for mutation failures (approve, reject, adjust). Fix any key warnings in the report list or filter controls."
+        },
+        {
+          "path": "frontend/src/pages/ConsolidatedMuseumPage.tsx",
+          "operation": "modify",
+          "description": "Add null checks for report and activity data. Ensure aggregation logic handles empty or undefined arrays without crashing. Display error messages when data fetching fails. Fix any console errors in CSV or PDF generation utilities."
+        },
+        {
+          "path": "frontend/src/pages/UserManagementPage.tsx",
+          "operation": "modify",
+          "description": "Add null guards for user profile arrays. Ensure list renders use stable unique keys (user.principal.toString()). Display toast notifications for mutation failures (approve, reject, delete, update). Handle cases where user data is missing or undefined."
+        },
+        {
+          "path": "frontend/src/components/ActivitiesList.tsx",
+          "operation": "modify",
+          "description": "Add null/undefined checks for activities array and individual activity properties. Ensure all list renders use stable unique keys (activity.id). Handle cases where activities are empty or undefined. Display empty state messages appropriately."
+        },
+        {
+          "path": "frontend/src/components/ApprovalDetailView.tsx",
+          "operation": "modify",
+          "description": "Add null checks for report and activities data. Ensure signature canvas and comments input handle undefined values. Display toast error messages when review mutation fails. Fix any console errors related to prop types or missing keys."
+        },
+        {
+          "path": "frontend/src/components/ProfileSetupModal.tsx",
+          "operation": "modify",
+          "description": "Add null checks for form inputs. Ensure the mutation hook displays toast error messages on failure. Handle cases where the user profile save fails gracefully."
+        },
+        {
+          "path": "frontend/src/components/Sidebar.tsx",
+          "operation": "modify",
+          "description": "Add null/undefined guards for user profile data. Ensure navigation items are filtered correctly without accessing undefined properties. Fix any console warnings related to missing keys in nav item lists."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Review all query and mutation hooks to ensure they handle errors gracefully. Add onError callbacks to all mutations to display toast notifications with user-friendly error messages (e.g., 'Falha ao salvar', 'Erro ao deletar'). Ensure query hooks return safe default values (empty arrays, null) when data is unavailable. Fix any unhandled promise rejections or missing error handlers."
         }
       ]
     }

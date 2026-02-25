@@ -61,7 +61,6 @@ const APPROVAL_LABELS: Record<string, string> = {
   rejected: 'Rejeitado',
 };
 
-// Only Daniel Perini Santos can hold the coordination role
 const COORDINATION_RESERVED_NAME = 'Daniel Perini Santos';
 
 export default function UserManagementPage() {
@@ -96,7 +95,7 @@ export default function UserManagementPage() {
     if (!editingUser) return;
     try {
       await updateProfile.mutateAsync({
-        user: editingUser.principal,
+        principal: editingUser.principal.toString(),
         profile: {
           name: editName,
           appRole: editRole,
@@ -112,7 +111,7 @@ export default function UserManagementPage() {
 
   const handleApprove = async (profile: FullUserProfile) => {
     try {
-      await approveUser.mutateAsync(profile.principal);
+      await approveUser.mutateAsync(profile.principal.toString());
       toast.success(`${profile.name} aprovado com sucesso`);
     } catch (err) {
       toast.error('Erro ao aprovar utilizador');
@@ -121,7 +120,7 @@ export default function UserManagementPage() {
 
   const handleReject = async (profile: FullUserProfile) => {
     try {
-      await rejectUser.mutateAsync(profile.principal);
+      await rejectUser.mutateAsync(profile.principal.toString());
       toast.success(`${profile.name} rejeitado`);
     } catch (err) {
       toast.error('Erro ao rejeitar utilizador');
@@ -131,7 +130,7 @@ export default function UserManagementPage() {
   const handleDelete = async () => {
     if (!deletingUser) return;
     try {
-      await deleteProfile.mutateAsync(deletingUser.principal);
+      await deleteProfile.mutateAsync(deletingUser.principal.toString());
       toast.success('Utilizador eliminado');
       setDeletingUser(null);
     } catch (err) {
@@ -139,7 +138,6 @@ export default function UserManagementPage() {
     }
   };
 
-  // Determine which roles are available for editing
   const getAvailableRoles = (targetName: string): AppUserRole[] => {
     const roles = [AppUserRole.professional, AppUserRole.coordinator, AppUserRole.administration];
     if (targetName === COORDINATION_RESERVED_NAME) {
@@ -150,69 +148,68 @@ export default function UserManagementPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-      <div className="flex items-center gap-3">
-        <Users className="w-6 h-6 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Gestão de Utilizadores</h1>
-          <p className="text-sm text-muted-foreground">
-            Gerir perfis, funções e aprovações
-          </p>
-        </div>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Gestão de Utilizadores</h1>
+        <p className="text-muted-foreground mt-1">
+          Gerencie utilizadores, aprovações e funções
+        </p>
       </div>
 
       {/* Pending Approvals */}
-      {isCoordinadorGeral && pendingProfiles.length > 0 && (
-        <div className="card-section space-y-3">
-          <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-warning" />
+      {pendingProfiles.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-warning" />
             Aprovações Pendentes ({pendingProfiles.length})
           </h2>
           <div className="space-y-2">
             {pendingProfiles.map((profile) => (
               <div
                 key={profile.principal.toString()}
-                className="flex items-center justify-between p-3 rounded-lg bg-warning/10 border border-warning/30"
+                className="flex items-center justify-between p-4 rounded-lg border border-warning/30 bg-warning/5"
               >
                 <div>
-                  <p className="text-sm font-medium text-foreground">{profile.name}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground">{profile.name}</p>
+                  <p className="text-sm text-muted-foreground">
                     {ROLE_LABELS[profile.appRole]} · {getMuseumLabel(profile.museum)}
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5">
+                    {profile.principal.toString().slice(0, 20)}...
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant="outline"
-                    className="text-success border-success/40 hover:bg-success/10"
                     onClick={() => handleApprove(profile)}
                     disabled={approveUser.isPending}
+                    className="gap-1 bg-success text-success-foreground hover:bg-success/90"
                   >
                     {approveUser.isPending ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
-                      <CheckCircle className="w-3 h-3 mr-1" />
+                      <CheckCircle className="h-3 w-3" />
                     )}
                     Aprovar
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
-                    className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                    variant="destructive"
                     onClick={() => handleReject(profile)}
                     disabled={rejectUser.isPending}
+                    className="gap-1"
                   >
                     {rejectUser.isPending ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
-                      <XCircle className="w-3 h-3 mr-1" />
+                      <XCircle className="h-3 w-3" />
                     )}
                     Rejeitar
                   </Button>
@@ -224,55 +221,60 @@ export default function UserManagementPage() {
       )}
 
       {/* All Users */}
-      <div className="card-section space-y-3">
-        <h2 className="text-base font-semibold text-foreground">
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Users className="h-5 w-5" />
           Todos os Utilizadores ({allProfiles.length})
         </h2>
         {allProfiles.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            Nenhum utilizador registado
-          </p>
+          <div className="text-center py-12 text-muted-foreground">
+            <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p>Nenhum utilizador registado</p>
+          </div>
         ) : (
           <div className="space-y-2">
             {allProfiles.map((profile) => (
               <div
                 key={profile.principal.toString()}
-                className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors"
+                className="flex items-center justify-between p-4 rounded-lg border border-border bg-card"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary font-semibold text-sm shrink-0">
-                    {profile.name.charAt(0).toUpperCase()}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-foreground">{profile.name}</p>
+                    <Badge
+                      variant={APPROVAL_VARIANTS[profile.approvalStatus] ?? 'outline'}
+                      className="text-xs"
+                    >
+                      {APPROVAL_LABELS[profile.approvalStatus] ?? profile.approvalStatus}
+                    </Badge>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{profile.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {ROLE_LABELS[profile.appRole]} · {getMuseumLabel(profile.museum)}
-                    </p>
-                  </div>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {ROLE_LABELS[profile.appRole]} · {getMuseumLabel(profile.museum)}
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 mt-0.5 truncate">
+                    {profile.principal.toString()}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Badge variant={APPROVAL_VARIANTS[profile.approvalStatus] ?? 'outline'}>
-                    {APPROVAL_LABELS[profile.approvalStatus] ?? profile.approvalStatus}
-                  </Badge>
+                <div className="flex gap-2 shrink-0 ml-3">
                   {isCoordinadorGeral && (
-                    <>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="w-7 h-7"
-                        onClick={() => handleEditOpen(profile)}
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="w-7 h-7 text-destructive hover:bg-destructive/10"
-                        onClick={() => setDeletingUser(profile)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleEditOpen(profile)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {isCoordinadorGeral && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => setDeletingUser(profile)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   )}
                 </div>
               </div>
@@ -282,30 +284,30 @@ export default function UserManagementPage() {
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+      <Dialog open={!!editingUser} onOpenChange={(open) => { if (!open) setEditingUser(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar Utilizador</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Nome</Label>
+              <Label>Nome</Label>
               <Input
-                id="edit-name"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
+                placeholder="Nome completo"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-role">Função</Label>
+              <Label>Função</Label>
               <Select
                 value={editRole}
                 onValueChange={(v) => setEditRole(v as AppUserRole)}
               >
-                <SelectTrigger id="edit-role">
+                <SelectTrigger className="bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border-border">
                   {getAvailableRoles(editName).map((role) => (
                     <SelectItem key={role} value={role}>
                       {ROLE_LABELS[role]}
@@ -315,18 +317,18 @@ export default function UserManagementPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-museum">Equipe/Museu</Label>
+              <Label>Museu / Equipe</Label>
               <Select
                 value={editMuseum}
                 onValueChange={(v) => setEditMuseum(v as MuseumLocation)}
               >
-                <SelectTrigger id="edit-museum">
+                <SelectTrigger className="bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  {MUSEUM_LOCATIONS.map((loc) => (
-                    <SelectItem key={loc} value={loc}>
-                      {getMuseumLabel(loc)}
+                <SelectContent className="bg-background border-border">
+                  {MUSEUM_LOCATIONS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {getMuseumLabel(m)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -338,7 +340,9 @@ export default function UserManagementPage() {
               Cancelar
             </Button>
             <Button onClick={handleEditSave} disabled={updateProfile.isPending}>
-              {updateProfile.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {updateProfile.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Guardar
             </Button>
           </DialogFooter>
@@ -346,12 +350,12 @@ export default function UserManagementPage() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
+      <AlertDialog open={!!deletingUser} onOpenChange={(open) => { if (!open) setDeletingUser(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar Utilizador</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem a certeza que deseja eliminar <strong>{deletingUser?.name}</strong>? Esta ação não pode ser desfeita.
+              Tem a certeza que deseja eliminar "{deletingUser?.name}"? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -359,12 +363,12 @@ export default function UserManagementPage() {
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteProfile.isPending}
             >
               {deleteProfile.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                'Eliminar'
-              )}
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : null}
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

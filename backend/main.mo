@@ -399,6 +399,21 @@ actor {
     activities : [Activity];
   };
 
+  // ── File Attachments Types and State ──────────────────────────────────────
+
+  public type FileAttachment = {
+    id : Text;
+    name : Text;
+    mimeType : Text;
+    size : Nat;
+    uploadedAt : Time.Time;
+    uploader : Principal;
+    base64Content : Text;
+  };
+
+  let fileAttachments = Map.empty<Text, FileAttachment>();
+  let reportFileLinks = Map.empty<ReportId, [Text]>();
+
   // ── Constants ──────────────────────────────────────────────────────────────
 
   /// The only name allowed to hold the #coordination and #coordinator roles.
@@ -443,6 +458,182 @@ actor {
     ?{
       report;
       activities = acts;
+    };
+  };
+
+  // ── File Attachments API ─────────────────────────────────────────────────
+
+  /// Upload a new file.
+  /// The uploader field must match the caller to prevent impersonation.
+  public shared ({ caller }) func uploadFile(file : FileAttachment) : async Text {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can upload files");
+    };
+    // Ensure the uploader field matches the caller
+    if (file.uploader != caller) {
+      Runtime.trap("Unauthorized: uploader must match the caller");
+    };
+    fileAttachments.add(file.id, file);
+    file.id;
+  };
+
+  /// List files.
+  /// Coordinators and admins see all files.
+  /// Regular users only see their own files.
+  public query ({ caller }) func listFiles() : async [FileAttachment] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can list files");
+    };
+    if (isCoordinator(caller)) {
+      fileAttachments.values().toArray();
+    } else {
+      fileAttachments.values().toArray().filter(
+        func(f : FileAttachment) : Bool { f.uploader == caller }
+      );
+    };
+  };
+
+  /// Delete a file and remove its report links.
+  /// Only the uploader, coordinators, or admins can delete a file.
+  public shared ({ caller }) func deleteFile(fileId : Text) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can delete files");
+    };
+    switch (fileAttachments.get(fileId)) {
+      case (?file) {
+        // Only the uploader, coordinators, or admins may delete
+        if (file.uploader != caller and not isCoordinator(caller)) {
+          Runtime.trap("Unauthorized: Can only delete own files");
+        };
+        fileAttachments.remove(fileId);
+        // Remove links from reports
+        let allLinks = reportFileLinks.keys().toArray();
+        for (reportId in allLinks.vals()) {
+          let files = switch (reportFileLinks.get(reportId)) {
+            case (?fs) { fs };
+            case (null) { [] };
+          };
+          let filteredFiles = files.filter(func(f) { f != fileId });
+          reportFileLinks.add(reportId, filteredFiles);
+        };
+      };
+      case (null) { Runtime.trap("File not found") };
+    };
+  };
+
+  /// Get a specific file by ID.
+  /// Only the uploader, coordinators, or admins can retrieve a file.
+  public query ({ caller }) func getFile(fileId : Text) : async ?FileAttachment {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can get files");
+    };
+    switch (fileAttachments.get(fileId)) {
+      case (?file) {
+        if (file.uploader != caller and not isCoordinator(caller)) {
+          Runtime.trap("Unauthorized: Can only get own files");
+        };
+        ?file;
+      };
+      case (null) { null };
+    };
+  };
+
+  // ── Report File Linking API ─────────────────────────────────────────────-
+
+  /// Link a file to a report.
+  /// The caller must be able to write to the report (own it or be a coordinator/admin),
+  /// and must own the file (or be a coordinator/admin).
+  public shared ({ caller }) func linkFileToReport(fileId : Text, reportId : ReportId) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can link files to reports");
+    };
+
+    // Check if file exists and caller owns it (or is coordinator/admin)
+    switch (fileAttachments.get(fileId)) {
+      case (?file) {
+        if (file.uploader != caller and not isCoordinator(caller)) {
+          Runtime.trap("Unauthorized: Can only link own files to reports");
+        };
+      };
+      case (null) { Runtime.trap("File not found") };
+    };
+
+    // Check if report exists and caller can write to it
+    let report = switch (reports.get(reportId)) {
+      case (?r) { r };
+      case (null) { Runtime.trap("Report not found") };
+    };
+    if (not canWrite(caller, report.authorId)) {
+      Runtime.trap("Unauthorized: Can only link files to own reports");
+    };
+
+    let currentFiles = switch (reportFileLinks.get(reportId)) {
+      case (?files) { files };
+      case (null) { [] };
+    };
+    // Avoid duplicate links
+    if (currentFiles.any(func(f) { f == fileId })) {
+      return ();
+    };
+
+    reportFileLinks.add(reportId, currentFiles.concat([fileId]));
+  };
+
+  /// Unlink a file from a report.
+  /// The caller must be able to write to the report (own it or be a coordinator/admin).
+  public shared ({ caller }) func unlinkFileFromReport(fileId : Text, reportId : ReportId) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can unlink files from reports");
+    };
+
+    // Check if report exists and caller can write to it
+    let report = switch (reports.get(reportId)) {
+      case (?r) { r };
+      case (null) { Runtime.trap("Report not found") };
+    };
+    if (not canWrite(caller, report.authorId)) {
+      Runtime.trap("Unauthorized: Can only unlink files from own reports");
+    };
+
+    let currentFiles = switch (reportFileLinks.get(reportId)) {
+      case (?files) { files };
+      case (null) { [] };
+    };
+    let filteredFiles = currentFiles.filter(func(f) { f != fileId });
+    reportFileLinks.add(reportId, filteredFiles);
+  };
+
+  /// Get all files linked to a report.
+  /// The caller must be able to read the report (own it or be a coordinator/admin).
+  public query ({ caller }) func getFilesForReport(reportId : ReportId) : async [FileAttachment] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can get report files");
+    };
+
+    // Check if report exists and caller can read it
+    let report = switch (reports.get(reportId)) {
+      case (?r) { r };
+      case (null) { Runtime.trap("Report not found") };
+    };
+    if (not canRead(caller, report.authorId)) {
+      Runtime.trap("Unauthorized: Can only view files for own reports");
+    };
+
+    let fileIds = switch (reportFileLinks.get(reportId)) {
+      case (?ids) { ids };
+      case (null) { [] };
+    };
+    let files = fileIds.map(
+      func(id) {
+        switch (fileAttachments.get(id)) {
+          case (?file) { ?file };
+          case (null) { null };
+        };
+      }
+    );
+    switch (files.find(func(f) { f != null })) {
+      case (null) { [] };
+      case (?_) { files.filterMap(func(f) { f }) };
     };
   };
 
@@ -1642,3 +1833,4 @@ actor {
     };
   };
 };
+

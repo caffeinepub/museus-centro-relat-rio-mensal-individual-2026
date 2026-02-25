@@ -1,13 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { Users, Loader2, AlertCircle } from 'lucide-react';
-import { Month, type AudienceQueryType } from '../../backend';
+import React, { useState } from 'react';
 import { useGetTotalGeneralAudience } from '../../hooks/useQueries';
-import {
-  getMonthOptions,
-  formatAudienceNumber,
-  getCurrentMonth,
-  getCurrentYear,
-} from '../../utils/labels';
+import { AudienceQueryType, Month } from '../../backend';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -15,214 +9,114 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+import { Users, Loader2 } from 'lucide-react';
+import { getMonthOptions, getCurrentMonth, getCurrentYear } from '../../utils/labels';
 
-type PeriodMode = 'month' | 'cumulative' | 'custom';
+const MONTH_OPTIONS = getMonthOptions();
 
-const AVAILABLE_YEARS = (() => {
-  const currentYear = getCurrentYear();
-  const years: number[] = [];
-  for (let y = 2024; y <= currentYear + 1; y++) {
-    years.push(y);
-  }
-  return years;
-})();
+const YEAR_OPTIONS = [2024, 2025, 2026, 2027];
+
+type QueryMode = 'specificMonth' | 'cumulativeTotal';
 
 export default function PublicoGeralCard() {
-  const [periodMode, setPeriodMode] = useState<PeriodMode>('month');
+  const [mode, setMode] = useState<QueryMode>('cumulativeTotal');
+  const [selectedMonth, setSelectedMonth] = useState<string>(
+    getCurrentMonth() ?? 'february'
+  );
+  const [selectedYear, setSelectedYear] = useState<number>(getCurrentYear());
 
-  const defaultMonth: Month = getCurrentMonth() ?? Month.february;
-  const defaultYear = getCurrentYear();
-
-  const [selectedMonth, setSelectedMonth] = useState<Month>(defaultMonth);
-  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
-
-  const [customStartMonth, setCustomStartMonth] = useState<Month>(Month.february);
-  const [customStartYear, setCustomStartYear] = useState<number>(defaultYear);
-  const [customEndMonth, setCustomEndMonth] = useState<Month>(defaultMonth);
-  const [customEndYear, setCustomEndYear] = useState<number>(defaultYear);
-
-  const monthOptions = getMonthOptions();
-
-  // Always produce a non-null AudienceQueryType; default to cumulativeTotal if needed
-  const queryType = useMemo<AudienceQueryType>(() => {
-    if (periodMode === 'month') {
-      return {
-        __kind__: 'specificMonth',
-        specificMonth: {
-          month: selectedMonth,
-          year: BigInt(selectedYear),
-        },
-      };
-    }
-    if (periodMode === 'custom') {
-      return {
-        __kind__: 'customRange',
-        customRange: {
-          startMonth: customStartMonth,
-          startYear: BigInt(customStartYear),
-          endMonth: customEndMonth,
-          endYear: BigInt(customEndYear),
-        },
-      };
-    }
-    // 'cumulative' or fallback
-    return {
-      __kind__: 'cumulativeTotal',
-      cumulativeTotal: null,
-    };
-  }, [periodMode, selectedMonth, selectedYear, customStartMonth, customStartYear, customEndMonth, customEndYear]);
+  const queryType: AudienceQueryType =
+    mode === 'specificMonth'
+      ? {
+          __kind__: 'specificMonth',
+          specificMonth: {
+            month: selectedMonth as Month,
+            year: BigInt(selectedYear),
+          },
+        }
+      : {
+          __kind__: 'cumulativeTotal',
+          cumulativeTotal: null,
+        };
 
   const { data: totalAudience, isLoading, isError } = useGetTotalGeneralAudience(queryType);
 
   const displayValue = isLoading
     ? '...'
     : isError
-    ? '—'
-    : totalAudience !== undefined
-    ? formatAudienceNumber(totalAudience)
-    : '—';
-
-  const periodLabel =
-    periodMode === 'month'
-      ? 'Mês Atual'
-      : periodMode === 'cumulative'
-      ? 'Acumulado'
-      : 'Período Customizado';
+    ? 'N/A'
+    : (totalAudience !== undefined && totalAudience !== null
+        ? Number(totalAudience).toLocaleString('pt-PT')
+        : '0');
 
   return (
-    <div className="card-section space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Users className="w-4 h-4 text-primary" />
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Users className="h-4 w-4" />
+          Público Geral (Relatórios Aprovados)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              {isLoading && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+              <span className="text-3xl font-bold text-foreground">{displayValue}</span>
+              <span className="text-sm text-muted-foreground">pessoas</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {mode === 'cumulativeTotal'
+                ? 'Total acumulado de todos os relatórios aprovados'
+                : `Mês de ${MONTH_OPTIONS.find((m) => m.value === selectedMonth)?.label ?? selectedMonth} de ${selectedYear}`}
+            </p>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Público Geral</h3>
-            <p className="text-xs text-muted-foreground">{periodLabel}</p>
-          </div>
-        </div>
-
-        {/* Period Mode Selector */}
-        <div className="flex gap-1 bg-muted rounded-lg p-1">
-          {(['month', 'cumulative', 'custom'] as PeriodMode[]).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setPeriodMode(mode)}
-              className={cn(
-                'px-3 py-1 rounded-md text-xs font-medium transition-all',
-                periodMode === mode
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {mode === 'month' ? 'Mês' : mode === 'cumulative' ? 'Acumulado' : 'Período'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Month/Year selectors for 'month' mode */}
-      {periodMode === 'month' && (
-        <div className="flex gap-2 flex-wrap">
-          <Select value={selectedMonth} onValueChange={(v) => setSelectedMonth(v as Month)}>
-            <SelectTrigger className="w-36 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
-            <SelectTrigger className="w-24 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {AVAILABLE_YEARS.map((y) => (
-                <SelectItem key={y} value={String(y)} className="text-xs">
-                  {y}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Custom range selectors */}
-      {periodMode === 'custom' && (
-        <div className="space-y-2">
-          <div className="flex gap-2 flex-wrap items-center">
-            <span className="text-xs text-muted-foreground w-8">De:</span>
-            <Select value={customStartMonth} onValueChange={(v) => setCustomStartMonth(v as Month)}>
-              <SelectTrigger className="w-32 h-8 text-xs">
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <Select value={mode} onValueChange={(v) => setMode(v as QueryMode)}>
+              <SelectTrigger className="w-40 bg-background border-border">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                {monthOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                    {opt.label}
-                  </SelectItem>
-                ))}
+              <SelectContent className="bg-background border-border">
+                <SelectItem value="cumulativeTotal">Total Acumulado</SelectItem>
+                <SelectItem value="specificMonth">Mês Específico</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={String(customStartYear)} onValueChange={(v) => setCustomStartYear(Number(v))}>
-              <SelectTrigger className="w-24 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {AVAILABLE_YEARS.map((y) => (
-                  <SelectItem key={y} value={String(y)} className="text-xs">
-                    {y}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2 flex-wrap items-center">
-            <span className="text-xs text-muted-foreground w-8">Até:</span>
-            <Select value={customEndMonth} onValueChange={(v) => setCustomEndMonth(v as Month)}>
-              <SelectTrigger className="w-32 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {monthOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={String(customEndYear)} onValueChange={(v) => setCustomEndYear(Number(v))}>
-              <SelectTrigger className="w-24 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {AVAILABLE_YEARS.map((y) => (
-                  <SelectItem key={y} value={String(y)} className="text-xs">
-                    {y}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+            {mode === 'specificMonth' && (
+              <>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="w-36 bg-background border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border">
+                    {MONTH_OPTIONS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={String(selectedYear)}
+                  onValueChange={(v) => setSelectedYear(Number(v))}
+                >
+                  <SelectTrigger className="w-24 bg-background border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border">
+                    {YEAR_OPTIONS.map((y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </div>
         </div>
-      )}
-
-      {/* Value Display */}
-      <div className="flex items-center gap-3">
-        {isLoading ? (
-          <Loader2 className="w-5 h-5 animate-spin text-primary" />
-        ) : isError ? (
-          <AlertCircle className="w-5 h-5 text-destructive" />
-        ) : null}
-        <span className="text-3xl font-bold text-foreground tabular-nums">{displayValue}</span>
-        <span className="text-sm text-muted-foreground">pessoas</span>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

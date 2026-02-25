@@ -107,7 +107,6 @@ function ReportCard({
             </div>
             <p className="text-xs text-muted-foreground/60 mt-1">{report.protocolNumber}</p>
 
-            {/* Coordinator comments */}
             {report.coordinatorComments && (
               <div className="mt-2 p-2 bg-warning/10 rounded text-xs border border-warning/20">
                 <span className="font-medium">Comentário: </span>
@@ -116,7 +115,7 @@ function ReportCard({
             )}
           </div>
 
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {canAddActivity && (
               <Button
                 variant="ghost"
@@ -160,7 +159,6 @@ function ReportCard({
           </div>
         </div>
 
-        {/* Activities section */}
         {showActivities && (
           <div className="mt-3 pt-3 border-t border-border">
             <ActivitiesList report={report} userRole={userRole} />
@@ -175,9 +173,11 @@ export default function ReportsListPage() {
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
   const { data: userProfile } = useGetCallerUserProfile();
-  const { data: reports, isLoading } = useReportsForUser(
-    identity?.getPrincipal()
-  );
+
+  // Pass principal as string
+  const userId = identity?.getPrincipal().toString();
+  const { data: reports, isLoading } = useReportsForUser(userId);
+
   const deleteMutation = useDeleteReport();
   const getReportWithActivitiesMutation = useGetReportWithActivities();
 
@@ -185,7 +185,6 @@ export default function ReportsListPage() {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
 
-  // Default to current month/year; fall back to february if outside valid range
   const defaultMonth: Month = getCurrentMonth() ?? Month.february;
   const defaultYear: number = getCurrentYear();
 
@@ -211,10 +210,9 @@ export default function ReportsListPage() {
   };
 
   const handleAddActivity = (reportId: string) => {
-    navigate({ to: '/activities/new', search: { reportId } });
+    navigate({ to: '/reports/$reportId/activities/new', params: { reportId } });
   };
 
-  /** Find the report matching the selected month/year from the user's reports */
   const findMatchingReport = (): Report | undefined => {
     if (!reports) return undefined;
     return reports.find(

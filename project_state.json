@@ -1,16 +1,50 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Project involves a system with monthly report export (PDF/CSV) functionality with month/year selector, and UI dropdown/list styling adjustments.",
+  "summary": "Application with report editing area, file management tab with upload capability, and ability to link files to reports (including old reports). Dashboard also needs to be fixed.",
   "architectural_notes": [],
-  "known_issues": [],
+  "known_issues": [
+    "Dashboard has errors that need to be fixed"
+  ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-remove-transparency-from-all-dropdown-select-lists-throughout-the-application-all-dropdown-menus-select-popover-content-and-suspended-lists-must-have-a-fully-opaque-background-no-transparency-or-backdrop-opacity-this-applies-to-all-select-popover-dropdownmenu-and-similar-overlay-components-used-across-every-page-and-component-in-the-frontend",
-      "title": "Remove transparency from all dropdown/select lists throughout the application. All dropdown menus, select popover content, and suspended lists must have a fully opaque background (no transparency or backdrop opacity). This applies to all Select, Popover, DropdownMenu, and similar overlay components used across every page and component in the frontend.",
+      "id": "feature-add-react-query-hooks-in-usequeries-ts-for-all-new-file-and-file-report-link-backend-operations-useuploadfile-uselistfiles-usedeletefile-uselinkfiletoreport-useunlinkfilefromreport-usefilesforreport",
+      "title": "Add React Query hooks in useQueries.ts for all new file and file-report-link backend operations: useUploadFile, useListFiles, useDeleteFile, useLinkFileToReport, useUnlinkFileFromReport, useFilesForReport.",
       "reqIds": [
-        "REQ-1"
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-create-a-file-management-tab-page-accessible-from-the-sidebar-for-coordinators-and-admins-the-page-must-display-a-list-of-all-uploaded-files-with-columns-for-name-type-size-upload-date-and-uploader-include-an-upload-button-that-opens-a-file-picker-accepting-pdfs-images-and-documents-uploads-the-selected-file-as-base64-and-shows-a-progress-loading-state-each-file-row-must-have-a-delete-button-with-confirmation",
+      "title": "Create a File Management tab/page accessible from the sidebar (for coordinators and admins). The page must display a list of all uploaded files with columns for name, type, size, upload date, and uploader. Include an upload button that opens a file picker (accepting PDFs, images, and documents), uploads the selected file as base64, and shows a progress/loading state. Each file row must have a delete button with confirmation.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-file-linking-section-inside-the-report-view-edit-page-reportformpage-or-a-dedicated-report-detail-view-display-the-files-currently-linked-to-the-report-and-provide-a-dialog-modal-to-browse-all-uploaded-files-and-link-unlink-them-to-the-current-report-this-must-work-for-both-new-and-existing-old-reports",
+      "title": "Add a file linking section inside the report view/edit page (ReportFormPage or a dedicated report detail view). Display the files currently linked to the report and provide a dialog/modal to browse all uploaded files and link/unlink them to the current report. This must work for both new and existing (old) reports.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-audit-and-fix-all-errors-in-dashboardpage-tsx-and-its-child-chart-kpi-components-ensure-all-data-fetching-hooks-handle-loading-and-error-states-without-crashing-fix-any-undefined-null-access-errors-incorrect-query-usage-or-missing-null-checks-across-kpicard-monthlyevolutionchart-activitiesbymuseumchart-audiencebyprofilechart-plannedvsachievedchart-reportsbymonthchart-reportsbymuseumchart-and-publicogeralcard",
+      "title": "Audit and fix all errors in DashboardPage.tsx and its child chart/KPI components. Ensure all data fetching hooks handle loading and error states without crashing. Fix any undefined/null access errors, incorrect query usage, or missing null checks across KPICard, MonthlyEvolutionChart, ActivitiesByMuseumChart, AudienceByProfileChart, PlannedVsAchievedChart, ReportsByMonthChart, ReportsByMuseumChart, and PublicoGeralCard.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-optimize-overall-application-robustness-add-null-undefined-guards-throughout-all-pages-and-components-ensure-all-react-query-mutations-display-toast-or-inline-error-messages-on-failure-and-remove-any-console-errors-related-to-missing-keys-invalid-types-or-unhandled-promise-rejections",
+      "title": "Optimize overall application robustness: add null/undefined guards throughout all pages and components, ensure all React Query mutations display toast or inline error messages on failure, and remove any console errors related to missing keys, invalid types, or unhandled promise rejections.",
+      "reqIds": [
+        "REQ-7"
       ],
       "version": 1
     }
@@ -18,13 +52,47 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Remove transparency from dropdown/suspended lists (make background fully opaque)",
+      "summary": "Report editing area: create, edit, view, and delete reports",
       "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "File management tab: upload files (PDFs, images, documents) with full listing",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Link files to reports (including old reports)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Fix dashboard errors and optimize overall functionality",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Implement a backend data model and API for file attachments: store file metadata (id, name, type, size, uploadedAt, uploader, base64 content) in stable storage. Expose CRUD operations: uploadFile, listFiles, deleteFile, getFile.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Implement a backend API for linking files to reports: store a many-to-many association between file IDs and report IDs. Expose linkFileToReport(fileId, reportId), unlinkFileFromReport(fileId, reportId), and getFilesForReport(reportId) operations.",
+      "reqIds": [
+        "REQ-2"
+      ],
       "status": "pending"
     }
   ],
   "gameProjectType": "none",
-  "projectName": "Remove transparency from dropdown lists",
+  "projectName": "Museus Centro Reports",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

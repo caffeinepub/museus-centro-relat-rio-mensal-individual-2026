@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
 import { useInternetIdentity } from './useInternetIdentity';
 import type {
@@ -6,23 +6,18 @@ import type {
   ReportCreate,
   Activity,
   ActivityCreate,
-  ActivityId,
-  ReportId,
   UserProfile,
   FullUserProfile,
   Goal,
-  DashboardFilter,
   CoordinationDashboard,
+  DashboardFilter,
   AudienceQueryType,
-  AppUserRole,
-  ProfessionalOption,
-  ReportActivityExport,
+  FileAttachment,
+  ReportId,
 } from '../backend';
-import { AppUserRole as AppUserRoleEnum } from '../backend';
-import { ExternalBlob } from '../backend';
-import { Principal } from '@dfinity/principal';
+import { toast } from 'sonner';
 
-// ── Actor helpers ──────────────────────────────────────────────────────────
+// ── User Profile Hooks ─────────────────────────────────────────────────────
 
 export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
@@ -44,6 +39,21 @@ export function useGetCallerUserProfile() {
   };
 }
 
+export function useGetUserProfile(principal: string | undefined) {
+  const { actor, isFetching } = useActor();
+  const { identity } = useInternetIdentity();
+
+  return useQuery<UserProfile | null>({
+    queryKey: ['userProfile', principal],
+    queryFn: async () => {
+      if (!actor || !principal) return null;
+      const { Principal } = await import('@dfinity/principal');
+      return actor.getUserProfile(Principal.fromText(principal));
+    },
+    enabled: !!actor && !isFetching && !!principal && !!identity,
+  });
+}
+
 export function useSaveCallerUserProfile() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
@@ -56,12 +66,94 @@ export function useSaveCallerUserProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
       queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
+      toast.success('Perfil salvo com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao salvar perfil: ${error.message}`);
     },
   });
 }
 
+export function useListAllUserProfiles() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<FullUserProfile[]>({
+    queryKey: ['allUserProfiles'],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listAllUserProfiles();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+// Alias for backwards compatibility
+export const useAllUserProfiles = useListAllUserProfiles;
+
+export function useUpdateUserProfile() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ principal, profile }: { principal: string; profile: UserProfile }) => {
+      if (!actor) throw new Error('Actor not available');
+      const { Principal } = await import('@dfinity/principal');
+      return actor.updateUserProfile(Principal.fromText(principal), profile);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
+      toast.success('Perfil atualizado com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao atualizar perfil: ${error.message}`);
+    },
+  });
+}
+
+export function useUpdateUserRole() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ principal, role }: { principal: string; role: import('../backend').AppUserRole }) => {
+      if (!actor) throw new Error('Actor not available');
+      const { Principal } = await import('@dfinity/principal');
+      return actor.updateUserRole(Principal.fromText(principal), role);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
+      toast.success('Função atualizada com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao atualizar função: ${error.message}`);
+    },
+  });
+}
+
+export function useDeleteUserProfile() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (principal: string) => {
+      if (!actor) throw new Error('Actor not available');
+      const { Principal } = await import('@dfinity/principal');
+      return actor.deleteUserProfile(Principal.fromText(principal));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
+      toast.success('Utilizador removido com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao remover utilizador: ${error.message}`);
+    },
+  });
+}
+
+// ── Approval Hooks ─────────────────────────────────────────────────────────
+
 export function useIsCallerApproved() {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
   const { identity } = useInternetIdentity();
 
   return useQuery<boolean>({
@@ -70,7 +162,7 @@ export function useIsCallerApproved() {
       if (!actor) return false;
       return actor.isCallerApproved();
     },
-    enabled: !!actor && !actorFetching && !!identity,
+    enabled: !!actor && !isFetching && !!identity,
   });
 }
 
@@ -85,43 +177,82 @@ export function useRequestApproval() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['isCallerApproved'] });
+      toast.success('Pedido de aprovação enviado');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao enviar pedido: ${error.message}`);
     },
   });
 }
 
-// ── Reports ────────────────────────────────────────────────────────────────
+export function useApproveUser() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
 
-export function useReportsForUser(userId: Principal | undefined) {
-  const { actor, isFetching: actorFetching } = useActor();
+  return useMutation({
+    mutationFn: async (principal: string) => {
+      if (!actor) throw new Error('Actor not available');
+      const { Principal } = await import('@dfinity/principal');
+      return actor.approveUser(Principal.fromText(principal));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      toast.success('Utilizador aprovado');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao aprovar utilizador: ${error.message}`);
+    },
+  });
+}
+
+export function useRejectUser() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (principal: string) => {
+      if (!actor) throw new Error('Actor not available');
+      const { Principal } = await import('@dfinity/principal');
+      return actor.rejectUser(Principal.fromText(principal));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      toast.success('Utilizador rejeitado');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao rejeitar utilizador: ${error.message}`);
+    },
+  });
+}
+
+// ── Report Hooks ───────────────────────────────────────────────────────────
+
+export function useReportsForUser(userId: string | undefined) {
+  const { actor, isFetching } = useActor();
 
   return useQuery<Report[]>({
-    queryKey: ['reportsForUser', userId?.toString()],
+    queryKey: ['reports', userId],
     queryFn: async () => {
       if (!actor || !userId) return [];
-      return actor.getReportsForUser(userId);
+      const { Principal } = await import('@dfinity/principal');
+      return actor.getReportsForUser(Principal.fromText(userId));
     },
-    enabled: !!actor && !actorFetching && !!userId,
+    enabled: !!actor && !isFetching && !!userId,
   });
 }
 
-export function useReport(reportId: string | undefined) {
-  const { actor, isFetching: actorFetching } = useActor();
+// Alias for compatibility
+export const useGetReportsForUser = useReportsForUser;
 
-  return useQuery<Report>({
-    queryKey: ['report', reportId],
-    queryFn: async () => {
-      if (!actor || !reportId) throw new Error('Missing actor or reportId');
-      return actor.getReport(reportId);
-    },
-    enabled: !!actor && !actorFetching && !!reportId,
-  });
+// Alias accepting Principal-like object for backwards compat
+export function useReports(userId: string | undefined) {
+  return useReportsForUser(userId);
 }
-
-// Alias for backwards compatibility
-export const useGetReport = useReport;
 
 export function useAllReports() {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
   return useQuery<Report[]>({
     queryKey: ['allReports'],
@@ -129,9 +260,25 @@ export function useAllReports() {
       if (!actor) return [];
       return actor.getAllReports();
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !isFetching,
   });
 }
+
+export function useReport(reportId: string | undefined) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<Report | null>({
+    queryKey: ['report', reportId],
+    queryFn: async () => {
+      if (!actor || !reportId) return null;
+      return actor.getReport(reportId);
+    },
+    enabled: !!actor && !isFetching && !!reportId,
+  });
+}
+
+// Alias for compatibility
+export const useGetReport = useReport;
 
 export function useCreateReport() {
   const { actor } = useActor();
@@ -143,8 +290,11 @@ export function useCreateReport() {
       return actor.createReport(report);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reportsForUser'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['allReports'] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao criar relatório: ${error.message}`);
     },
   });
 }
@@ -159,9 +309,12 @@ export function useUpdateReport() {
       return actor.updateReport(reportId, report);
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['report', variables.reportId] });
-      queryClient.invalidateQueries({ queryKey: ['reportsForUser'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['allReports'] });
+      queryClient.invalidateQueries({ queryKey: ['report', variables.reportId] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao atualizar relatório: ${error.message}`);
     },
   });
 }
@@ -176,8 +329,12 @@ export function useDeleteReport() {
       return actor.deleteReport(reportId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reportsForUser'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['allReports'] });
+      toast.success('Relatório eliminado com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao eliminar relatório: ${error.message}`);
     },
   });
 }
@@ -192,9 +349,13 @@ export function useSubmitReport() {
       return actor.submitReport(reportId);
     },
     onSuccess: (_data, reportId) => {
-      queryClient.invalidateQueries({ queryKey: ['report', reportId] });
-      queryClient.invalidateQueries({ queryKey: ['reportsForUser'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['allReports'] });
+      queryClient.invalidateQueries({ queryKey: ['report', reportId] });
+      toast.success('Relatório submetido com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao submeter relatório: ${error.message}`);
     },
   });
 }
@@ -212,15 +373,19 @@ export function useReviewReport() {
     }: {
       reportId: string;
       status: import('../backend').Status;
-      comments?: string;
-      signature?: ExternalBlob;
+      comments: string | null;
+      signature: import('../backend').ExternalBlob | null;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.reviewReport(reportId, status, comments ?? null, signature ?? null);
+      return actor.reviewReport(reportId, status, comments, signature);
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['report', variables.reportId] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['allReports'] });
+      toast.success('Relatório revisto com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao rever relatório: ${error.message}`);
     },
   });
 }
@@ -236,6 +401,9 @@ export function useUploadSignature() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['report', variables.reportId] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao guardar assinatura: ${error.message}`);
     },
   });
 }
@@ -261,40 +429,50 @@ export function useUpdateCoordinationFields() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['report', variables.reportId] });
+      queryClient.invalidateQueries({ queryKey: ['allReports'] });
+      toast.success('Campos de coordenação atualizados');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao atualizar campos: ${error.message}`);
     },
   });
 }
 
-// ── Activities ─────────────────────────────────────────────────────────────
+export function useGetReportWithActivities() {
+  const { actor } = useActor();
+
+  return useMutation({
+    mutationFn: async (reportId: string) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.getReportWithActivities(reportId);
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao exportar relatório: ${error.message}`);
+    },
+  });
+}
+
+// ── Activity Hooks ─────────────────────────────────────────────────────────
 
 export function useActivitiesForReport(reportId: string | undefined) {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
   return useQuery<Activity[]>({
-    queryKey: ['activitiesForReport', reportId],
+    queryKey: ['activities', reportId],
     queryFn: async () => {
       if (!actor || !reportId) return [];
       return actor.getActivitiesForReport(reportId);
     },
-    enabled: !!actor && !actorFetching && !!reportId,
+    enabled: !!actor && !isFetching && !!reportId,
   });
 }
 
-export function useActivity(activityId: string | undefined) {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<Activity>({
-    queryKey: ['activity', activityId],
-    queryFn: async () => {
-      if (!actor || !activityId) throw new Error('Missing actor or activityId');
-      return actor.getActivity(activityId);
-    },
-    enabled: !!actor && !actorFetching && !!activityId,
-  });
-}
+// Alias for compatibility
+export const useActivities = useActivitiesForReport;
+export const useGetActivitiesForReport = useActivitiesForReport;
 
 export function useAllActivities() {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
   return useQuery<Activity[]>({
     queryKey: ['allActivities'],
@@ -302,7 +480,20 @@ export function useAllActivities() {
       if (!actor) return [];
       return actor.getAllActivities();
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useActivity(activityId: string | undefined) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<Activity | null>({
+    queryKey: ['activity', activityId],
+    queryFn: async () => {
+      if (!actor || !activityId) return null;
+      return actor.getActivity(activityId);
+    },
+    enabled: !!actor && !isFetching && !!activityId,
   });
 }
 
@@ -316,8 +507,11 @@ export function useCreateActivity() {
       return actor.createActivity(activity);
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['activitiesForReport', variables.reportId] });
+      queryClient.invalidateQueries({ queryKey: ['activities', variables.reportId] });
       queryClient.invalidateQueries({ queryKey: ['allActivities'] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao criar atividade: ${error.message}`);
     },
   });
 }
@@ -332,9 +526,11 @@ export function useUpdateActivity() {
       return actor.updateActivity(activityId, activity);
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['activity', variables.activityId] });
-      queryClient.invalidateQueries({ queryKey: ['activitiesForReport'] });
+      queryClient.invalidateQueries({ queryKey: ['activities', variables.activity.reportId] });
       queryClient.invalidateQueries({ queryKey: ['allActivities'] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao atualizar atividade: ${error.message}`);
     },
   });
 }
@@ -344,34 +540,38 @@ export function useDeleteActivity() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (activityId: string) => {
+    mutationFn: async ({ activityId, reportId }: { activityId: string; reportId: string }) => {
       if (!actor) throw new Error('Actor not available');
       return actor.deleteActivity(activityId);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['activitiesForReport'] });
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['activities', variables.reportId] });
       queryClient.invalidateQueries({ queryKey: ['allActivities'] });
+      toast.success('Atividade eliminada com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao eliminar atividade: ${error.message}`);
     },
   });
 }
 
-// ── Report with Activities (for export) ───────────────────────────────────
+export function useSearchActivities(searchTerm: string) {
+  const { actor, isFetching } = useActor();
 
-export function useGetReportWithActivities() {
-  const { actor } = useActor();
-
-  return useMutation({
-    mutationFn: async (reportId: ReportId): Promise<ReportActivityExport | null> => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.getReportWithActivities(reportId);
+  return useQuery({
+    queryKey: ['searchActivities', searchTerm],
+    queryFn: async () => {
+      if (!actor || !searchTerm) return [];
+      return actor.searchActivitiesByName(searchTerm);
     },
+    enabled: !!actor && !isFetching && searchTerm.length > 2,
   });
 }
 
-// ── Goals ──────────────────────────────────────────────────────────────────
+// ── Goals Hooks ────────────────────────────────────────────────────────────
 
 export function useGoals() {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
   return useQuery<Goal[]>({
     queryKey: ['goals'],
@@ -379,7 +579,7 @@ export function useGoals() {
       if (!actor) return [];
       return actor.listGoals();
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !isFetching,
   });
 }
 
@@ -388,12 +588,16 @@ export function useAddGoal() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ name, description }: { name: string; description?: string }) => {
+    mutationFn: async ({ name, description }: { name: string; description: string | null }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.addGoal(name, description ?? null);
+      return actor.addGoal(name, description);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
+      toast.success('Meta adicionada com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao adicionar meta: ${error.message}`);
     },
   });
 }
@@ -410,121 +614,29 @@ export function useToggleGoalActive() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
     },
-  });
-}
-
-// ── User Management ────────────────────────────────────────────────────────
-
-export function useAllUserProfiles() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<FullUserProfile[]>({
-    queryKey: ['allUserProfiles'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.listAllUserProfiles();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-}
-
-// Alias for backwards compatibility
-export const useListAllUserProfiles = useAllUserProfiles;
-
-export function useUpdateUserProfile() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ user, profile }: { user: Principal; profile: UserProfile }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.updateUserProfile(user, profile);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
+    onError: (error: Error) => {
+      toast.error(`Falha ao atualizar meta: ${error.message}`);
     },
   });
 }
 
-export function useUpdateUserRole() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ user, role }: { user: Principal; role: AppUserRole }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.updateUserRole(user, role);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
-    },
-  });
-}
-
-export function useDeleteUserProfile() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (user: Principal) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.deleteUserProfile(user);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
-    },
-  });
-}
-
-export function useApproveUser() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (user: Principal) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.approveUser(user);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
-      queryClient.invalidateQueries({ queryKey: ['isCallerApproved'] });
-    },
-  });
-}
-
-export function useRejectUser() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (user: Principal) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.rejectUser(user);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
-    },
-  });
-}
-
-// ── Dashboard ──────────────────────────────────────────────────────────────
+// ── Dashboard Hooks ────────────────────────────────────────────────────────
 
 export function useCoordinationDashboard(filter: DashboardFilter) {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
-  return useQuery<CoordinationDashboard>({
+  return useQuery<CoordinationDashboard | null>({
     queryKey: ['coordinationDashboard', filter],
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) return null;
       return actor.getCoordinationDashboardWithFilter(filter);
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !isFetching,
   });
 }
 
-/** Serialize an AudienceQueryType to a string safe for use as a React Query key. */
-function serializeAudienceQueryType(queryType: AudienceQueryType | null): string {
-  if (!queryType) return 'null';
+/** Serialize AudienceQueryType to a stable string for use as a React Query key (no BigInt). */
+function serializeAudienceQueryType(queryType: AudienceQueryType): string {
   if (queryType.__kind__ === 'cumulativeTotal') return 'cumulativeTotal';
   if (queryType.__kind__ === 'specificMonth') {
     const { month, year } = queryType.specificMonth;
@@ -534,19 +646,34 @@ function serializeAudienceQueryType(queryType: AudienceQueryType | null): string
     const { startMonth, startYear, endMonth, endYear } = queryType.customRange;
     return `customRange:${startMonth}:${startYear.toString()}:${endMonth}:${endYear.toString()}`;
   }
-  return JSON.stringify(queryType);
+  return 'unknown';
 }
 
-export function useGetTotalGeneralAudience(queryType: AudienceQueryType | null) {
-  const { actor, isFetching: actorFetching } = useActor();
+export function useGetTotalGeneralAudience(queryType: AudienceQueryType) {
+  const { actor, isFetching } = useActor();
 
   return useQuery<bigint>({
     queryKey: ['totalGeneralAudience', serializeAudienceQueryType(queryType)],
     queryFn: async () => {
-      if (!actor || !queryType) throw new Error('Actor not available or queryType is null');
+      if (!actor) return BigInt(0);
       return actor.getTotalGeneralAudience(queryType);
     },
-    enabled: !!actor && !actorFetching && !!queryType,
+    enabled: !!actor && !isFetching,
+  });
+}
+
+// ── Professionals Hooks ────────────────────────────────────────────────────
+
+export function useListRegisteredProfessionals() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery({
+    queryKey: ['registeredProfessionals'],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listRegisteredProfessionals();
+    },
+    enabled: !!actor && !isFetching,
   });
 }
 
@@ -554,53 +681,135 @@ export function useGetTotalGeneralAudience(queryType: AudienceQueryType | null) 
 
 export function useIsCoordinadorGeral() {
   const { data: profile } = useGetCallerUserProfile();
-  return profile?.appRole === AppUserRoleEnum.coordination;
+  return profile?.appRole === 'coordination';
 }
 
 export function useIsCoordinator() {
   const { data: profile } = useGetCallerUserProfile();
-  return (
-    profile?.appRole === AppUserRoleEnum.coordination ||
-    profile?.appRole === AppUserRoleEnum.coordinator
-  );
+  return profile?.appRole === 'coordination' || profile?.appRole === 'coordinator';
 }
 
 export function useIsAdministration() {
   const { data: profile } = useGetCallerUserProfile();
-  return profile?.appRole === AppUserRoleEnum.administration;
+  return profile?.appRole === 'administration';
 }
 
-// ── Professionals list ─────────────────────────────────────────────────────
+// ── File Management Hooks ──────────────────────────────────────────────────
 
-export function useListRegisteredProfessionals() {
-  const { actor, isFetching: actorFetching } = useActor();
-  const { identity } = useInternetIdentity();
+export function useListFiles() {
+  const { actor, isFetching } = useActor();
 
-  return useQuery<ProfessionalOption[]>({
-    queryKey: ['registeredProfessionals'],
+  return useQuery<FileAttachment[]>({
+    queryKey: ['files'],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.listRegisteredProfessionals();
+      return actor.listFiles();
     },
-    enabled: !!actor && !actorFetching && !!identity,
+    enabled: !!actor && !isFetching,
   });
 }
 
-// ── Search ─────────────────────────────────────────────────────────────────
+export function useUploadFile() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
 
-export function useSearchActivities(searchTerm: string) {
-  const { actor, isFetching: actorFetching } = useActor();
+  return useMutation({
+    mutationFn: async (file: FileAttachment) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.uploadFile(file);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['files'] });
+      toast.success('Arquivo enviado com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao enviar arquivo: ${error.message}`);
+    },
+  });
+}
 
-  return useQuery({
-    queryKey: ['searchActivities', searchTerm],
+export function useDeleteFile() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (fileId: string) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.deleteFile(fileId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['files'] });
+      queryClient.invalidateQueries({ queryKey: ['reportFiles'] });
+      toast.success('Arquivo eliminado com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao eliminar arquivo: ${error.message}`);
+    },
+  });
+}
+
+export function useGetFile(fileId: string | undefined) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<FileAttachment | null>({
+    queryKey: ['file', fileId],
     queryFn: async () => {
-      if (!actor || !searchTerm) return [];
-      return actor.searchActivitiesByName(searchTerm);
+      if (!actor || !fileId) return null;
+      return actor.getFile(fileId);
     },
-    enabled: !!actor && !actorFetching && searchTerm.length > 0,
+    enabled: !!actor && !isFetching && !!fileId,
   });
 }
 
-// Backwards-compat aliases
-export const useGetReportsForUser = useReportsForUser;
-export const useGetActivitiesForReport = useActivitiesForReport;
+export function useFilesForReport(reportId: string | undefined) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<FileAttachment[]>({
+    queryKey: ['reportFiles', reportId],
+    queryFn: async () => {
+      if (!actor || !reportId) return [];
+      return actor.getFilesForReport(reportId);
+    },
+    enabled: !!actor && !isFetching && !!reportId,
+  });
+}
+
+export function useLinkFileToReport() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ fileId, reportId }: { fileId: string; reportId: ReportId }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.linkFileToReport(fileId, reportId);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['reportFiles', variables.reportId] });
+      queryClient.invalidateQueries({ queryKey: ['files'] });
+      toast.success('Arquivo vinculado ao relatório');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao vincular arquivo: ${error.message}`);
+    },
+  });
+}
+
+export function useUnlinkFileFromReport() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ fileId, reportId }: { fileId: string; reportId: ReportId }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.unlinkFileFromReport(fileId, reportId);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['reportFiles', variables.reportId] });
+      queryClient.invalidateQueries({ queryKey: ['files'] });
+      toast.success('Arquivo desvinculado do relatório');
+    },
+    onError: (error: Error) => {
+      toast.error(`Falha ao desvincular arquivo: ${error.message}`);
+    },
+  });
+}

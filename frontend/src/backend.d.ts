@@ -50,6 +50,15 @@ export interface Report {
     sendDate?: Time;
 }
 export type ReportId = string;
+export interface FileAttachment {
+    id: string;
+    name: string;
+    size: bigint;
+    mimeType: string;
+    base64Content: string;
+    uploader: Principal;
+    uploadedAt: Time;
+}
 export interface ReportActivityExport {
     report: Report;
     activities: Array<Activity>;
@@ -372,6 +381,11 @@ export interface backendInterface {
      */
     deleteActivity(activityId: ActivityId): Promise<void>;
     /**
+     * / Delete a file and remove its report links.
+     * / Only the uploader, coordinators, or admins can delete a file.
+     */
+    deleteFile(fileId: string): Promise<void>;
+    /**
      * / Delete a report.
      * / Coordinators and admins can delete any report.
      * / Professionals can only delete their own reports in draft or
@@ -390,6 +404,16 @@ export interface backendInterface {
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getCoordinationDashboardWithFilter(filter: DashboardFilter): Promise<CoordinationDashboard>;
+    /**
+     * / Get a specific file by ID.
+     * / Only the uploader, coordinators, or admins can retrieve a file.
+     */
+    getFile(fileId: string): Promise<FileAttachment | null>;
+    /**
+     * / Get all files linked to a report.
+     * / The caller must be able to read the report (own it or be a coordinator/admin).
+     */
+    getFilesForReport(reportId: ReportId): Promise<Array<FileAttachment>>;
     getReport(reportId: ReportId): Promise<Report>;
     /**
      * / Export a report with all its activities.
@@ -405,9 +429,21 @@ export interface backendInterface {
      * / Returns true for admins, coordinators, and explicitly approved users.
      */
     isCallerApproved(): Promise<boolean>;
+    /**
+     * / Link a file to a report.
+     * / The caller must be able to write to the report (own it or be a coordinator/admin),
+     * / and must own the file (or be a coordinator/admin).
+     */
+    linkFileToReport(fileId: string, reportId: ReportId): Promise<void>;
     listAllActivities(): Promise<Array<Activity>>;
     listAllUserProfiles(): Promise<Array<FullUserProfile>>;
     listApprovals(): Promise<Array<UserApprovalInfo>>;
+    /**
+     * / List files.
+     * / Coordinators and admins see all files.
+     * / Regular users only see their own files.
+     */
+    listFiles(): Promise<Array<FileAttachment>>;
     listGoals(): Promise<Array<Goal>>;
     /**
      * / Returns all user profiles that are fully registered and approved,
@@ -443,6 +479,11 @@ export interface backendInterface {
     submitReport(reportId: ReportId): Promise<void>;
     toggleGoalActive(goalId: bigint): Promise<void>;
     /**
+     * / Unlink a file from a report.
+     * / The caller must be able to write to the report (own it or be a coordinator/admin).
+     */
+    unlinkFileFromReport(fileId: string, reportId: ReportId): Promise<void>;
+    /**
      * / Update an activity.
      * / Coordinators and admins can edit any activity.
      * / Professionals can only edit activities belonging to their own reports
@@ -473,5 +514,10 @@ export interface backendInterface {
      * / otherwise it is downgraded to #coordinator.
      */
     updateUserRole(user: Principal, newRole: AppUserRole): Promise<void>;
+    /**
+     * / Upload a new file.
+     * / The uploader field must match the caller to prevent impersonation.
+     */
+    uploadFile(file: FileAttachment): Promise<string>;
     uploadSignature(reportId: ReportId, signatureBase64: string): Promise<void>;
 }

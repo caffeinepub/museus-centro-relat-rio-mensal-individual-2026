@@ -1,24 +1,24 @@
 import React from 'react';
 import { useNavigate, useLocation } from '@tanstack/react-router';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import { useGetCallerUserProfile } from '../hooks/useQueries';
 import { useQueryClient } from '@tanstack/react-query';
-import { useGetCallerUserProfile, useIsCoordinadorGeral } from '../hooks/useQueries';
 import { AppUserRole } from '../backend';
 import {
   LayoutDashboard,
   FileText,
-  ClipboardCheck,
+  CheckSquare,
   Users,
   BarChart3,
+  FolderOpen,
   LogOut,
-  Target,
   ChevronRight,
+  Building2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface SidebarProps {
-  isApproved?: boolean;
-}
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 interface NavItem {
   label: string;
@@ -31,152 +31,171 @@ const NAV_ITEMS: NavItem[] = [
   {
     label: 'Dashboard',
     path: '/dashboard',
-    icon: <LayoutDashboard className="w-4 h-4" />,
+    icon: <LayoutDashboard className="h-4 w-4" />,
     roles: [AppUserRole.coordination, AppUserRole.coordinator, AppUserRole.administration],
   },
   {
     label: 'Relatórios',
     path: '/reports',
-    icon: <FileText className="w-4 h-4" />,
+    icon: <FileText className="h-4 w-4" />,
+  },
+  {
+    label: 'Arquivos',
+    path: '/files',
+    icon: <FolderOpen className="h-4 w-4" />,
+    roles: [AppUserRole.coordination, AppUserRole.coordinator, AppUserRole.administration],
   },
   {
     label: 'Aprovações',
     path: '/approvals',
-    icon: <ClipboardCheck className="w-4 h-4" />,
+    icon: <CheckSquare className="h-4 w-4" />,
     roles: [AppUserRole.coordination, AppUserRole.coordinator, AppUserRole.administration],
   },
   {
     label: 'Consolidado',
     path: '/consolidated',
-    icon: <BarChart3 className="w-4 h-4" />,
+    icon: <BarChart3 className="h-4 w-4" />,
     roles: [AppUserRole.coordination, AppUserRole.coordinator, AppUserRole.administration],
   },
   {
-    label: 'Usuários',
+    label: 'Utilizadores',
     path: '/users',
-    icon: <Users className="w-4 h-4" />,
-    roles: [AppUserRole.coordination, AppUserRole.coordinator, AppUserRole.administration],
-  },
-  {
-    label: 'Metas',
-    path: '/goals',
-    icon: <Target className="w-4 h-4" />,
-    roles: [AppUserRole.administration],
+    icon: <Users className="h-4 w-4" />,
+    roles: [AppUserRole.coordination, AppUserRole.administration],
   },
 ];
 
-export default function Sidebar({ isApproved = true }: SidebarProps) {
+function getRoleLabel(role: AppUserRole): string {
+  switch (role) {
+    case AppUserRole.coordination: return 'Coordenação Geral';
+    case AppUserRole.coordinator: return 'Coordenador';
+    case AppUserRole.administration: return 'Administração';
+    case AppUserRole.professional: return 'Profissional';
+    default: return 'Utilizador';
+  }
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((n) => n[0] ?? '')
+    .join('')
+    .toUpperCase();
+}
+
+export default function Sidebar() {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
-  const { clear } = useInternetIdentity();
-  const queryClient = useQueryClient();
+  const location = useLocation();
+  const { identity, clear } = useInternetIdentity();
   const { data: userProfile } = useGetCallerUserProfile();
-  const isCoordinadorGeral = useIsCoordinadorGeral();
+  const queryClient = useQueryClient();
+
+  const userRole = userProfile?.appRole ?? null;
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (!item.roles) return true;
+    if (!userRole) return false;
+    return item.roles.includes(userRole);
+  });
 
   const handleLogout = async () => {
     await clear();
     queryClient.clear();
   };
 
-  const userRole = userProfile?.appRole;
-
-  const visibleItems = NAV_ITEMS.filter((item) => {
-    if (!isApproved) return false;
-    if (!item.roles) return true;
-    if (!userRole) return false;
-    return item.roles.includes(userRole);
-  });
-
   const isActive = (path: string) => {
-    if (path === '/reports') return pathname.startsWith('/reports');
-    return pathname === path || pathname.startsWith(path + '/');
-  };
-
-  const getRoleLabel = () => {
-    if (!userRole) return '';
-    if (isCoordinadorGeral) return 'Coordenador Geral';
-    const labels: Record<AppUserRole, string> = {
-      [AppUserRole.professional]: 'Profissional',
-      [AppUserRole.coordination]: 'Coordenação',
-      [AppUserRole.coordinator]: 'Coordenador',
-      [AppUserRole.administration]: 'Administração',
-    };
-    return labels[userRole] ?? '';
+    if (path === '/dashboard') return location.pathname === '/dashboard' || location.pathname === '/';
+    return location.pathname.startsWith(path);
   };
 
   return (
-    <aside className="w-64 h-screen flex flex-col bg-sidebar border-r border-sidebar-border">
-      {/* Logo */}
-      <div className="p-5 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0">
-            <img
-              src="/assets/generated/museus-centro-logo.dim_256x256.png"
-              alt="Museus Centro"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-sidebar-foreground leading-tight">Museus Centro</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">Sistema de Relatórios</p>
-          </div>
+    <aside className="w-64 min-h-screen bg-card border-r border-border flex flex-col">
+      {/* Logo / Brand */}
+      <div className="p-4 flex items-center gap-3 border-b border-border">
+        <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
+          <Building2 className="h-5 w-5 text-primary-foreground" />
+        </div>
+        <div className="min-w-0">
+          <p className="font-bold text-sm text-foreground leading-tight">Museus Centro</p>
+          <p className="text-xs text-muted-foreground truncate">Gestão de Relatórios</p>
         </div>
       </div>
 
-      {/* User Info */}
-      {userProfile && (
-        <div className="px-4 py-3 border-b border-sidebar-border">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm shrink-0">
-              {userProfile.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-sidebar-foreground truncate">{userProfile.name}</p>
-              <p className="text-xs text-sidebar-foreground/60">{getRoleLabel()}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-        {isApproved ? (
-          visibleItems.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate({ to: item.path })}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group ${
-                isActive(item.path)
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
-              }`}
-            >
-              <span className={isActive(item.path) ? 'text-primary-foreground' : 'text-sidebar-foreground/50 group-hover:text-sidebar-foreground'}>
-                {item.icon}
-              </span>
-              <span className="flex-1 text-left">{item.label}</span>
-              {isActive(item.path) && (
-                <ChevronRight className="w-3.5 h-3.5 opacity-70" />
-              )}
-            </button>
-          ))
-        ) : (
-          <div className="px-3 py-4 text-xs text-sidebar-foreground/50 text-center">
-            Aguardando aprovação para acessar o sistema
-          </div>
-        )}
+      <nav className="flex-1 p-3 space-y-1">
+        {visibleNavItems.map((item) => (
+          <button
+            key={item.path}
+            onClick={() => navigate({ to: item.path })}
+            className={cn(
+              'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-left',
+              isActive(item.path)
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            {item.icon}
+            <span className="flex-1">{item.label}</span>
+            {isActive(item.path) && <ChevronRight className="h-3 w-3 opacity-70" />}
+          </button>
+        ))}
       </nav>
 
-      {/* Footer */}
-      <div className="p-3 border-t border-sidebar-border">
+      <Separator />
+
+      {/* User Profile */}
+      <div className="p-3">
+        {userProfile ? (
+          <div className="flex items-center gap-3 px-2 py-2 rounded-md">
+            <Avatar className="h-8 w-8 shrink-0">
+              <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                {getInitials(userProfile.name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground truncate">{userProfile.name}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {getRoleLabel(userProfile.appRole)}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 px-2 py-2">
+            <Avatar className="h-8 w-8 shrink-0">
+              <AvatarFallback className="text-xs">?</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground truncate">
+                {identity?.getPrincipal().toString().slice(0, 12)}...
+              </p>
+            </div>
+          </div>
+        )}
         <Button
           variant="ghost"
-          className="w-full justify-start gap-3 text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 text-sm"
+          size="sm"
           onClick={handleLogout}
+          className="w-full mt-1 gap-2 text-muted-foreground hover:text-foreground justify-start"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="h-4 w-4" />
           Sair
         </Button>
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-border">
+        <p className="text-xs text-muted-foreground text-center">
+          © {new Date().getFullYear()} Built with ❤️ using{' '}
+          <a
+            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname || 'museus-centro')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-foreground"
+          >
+            caffeine.ai
+          </a>
+        </p>
       </div>
     </aside>
   );

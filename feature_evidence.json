@@ -2,10 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-remove-transparency-from-all-dropdown-select-lists-throughout-the-application-all-dropdown-menus-select-popover-content-and-suspended-lists-must-have-a-fully-opaque-background-no-transparency-or-backdrop-opacity-this-applies-to-all-select-popover-dropdownmenu-and-similar-overlay-components-used-across-every-page-and-component-in-the-frontend",
-      "featureTitle": "Remove transparency from all dropdown/select lists throughout the application. All dropdown menus, select popover content, and suspended lists must have a fully opaque background (no transparency or backdrop opacity). This applies to all Select, Popover, DropdownMenu, and similar overlay components used across every page and component in the frontend.",
+      "featureId": "feature-add-react-query-hooks-in-usequeries-ts-for-all-new-file-and-file-report-link-backend-operations-useuploadfile-uselistfiles-usedeletefile-uselinkfiletoreport-useunlinkfilefromreport-usefilesforreport",
+      "featureTitle": "Add React Query hooks in useQueries.ts for all new file and file-report-link backend operations: useUploadFile, useListFiles, useDeleteFile, useLinkFileToReport, useUnlinkFileFromReport, useFilesForReport.",
       "files": [
-        "frontend/src/index.css"
+        "frontend/src/hooks/useQueries.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -18,7 +18,107 @@
         "user-approval@3.0.0"
       ],
       "testIds": [
-        "REQ-1"
+        "REQ-3"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-create-a-file-management-tab-page-accessible-from-the-sidebar-for-coordinators-and-admins-the-page-must-display-a-list-of-all-uploaded-files-with-columns-for-name-type-size-upload-date-and-uploader-include-an-upload-button-that-opens-a-file-picker-accepting-pdfs-images-and-documents-uploads-the-selected-file-as-base64-and-shows-a-progress-loading-state-each-file-row-must-have-a-delete-button-with-confirmation",
+      "featureTitle": "Create a File Management tab/page accessible from the sidebar (for coordinators and admins). The page must display a list of all uploaded files with columns for name, type, size, upload date, and uploader. Include an upload button that opens a file picker (accepting PDFs, images, and documents), uploads the selected file as base64, and shows a progress/loading state. Each file row must have a delete button with confirmation.",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/components/Sidebar.tsx",
+        "frontend/src/pages/FileManagementPage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-4"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-add-a-file-linking-section-inside-the-report-view-edit-page-reportformpage-or-a-dedicated-report-detail-view-display-the-files-currently-linked-to-the-report-and-provide-a-dialog-modal-to-browse-all-uploaded-files-and-link-unlink-them-to-the-current-report-this-must-work-for-both-new-and-existing-old-reports",
+      "featureTitle": "Add a file linking section inside the report view/edit page (ReportFormPage or a dedicated report detail view). Display the files currently linked to the report and provide a dialog/modal to browse all uploaded files and link/unlink them to the current report. This must work for both new and existing (old) reports.",
+      "files": [
+        "frontend/src/components/ReportFilesSection.tsx",
+        "frontend/src/pages/ReportsListPage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-5"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-audit-and-fix-all-errors-in-dashboardpage-tsx-and-its-child-chart-kpi-components-ensure-all-data-fetching-hooks-handle-loading-and-error-states-without-crashing-fix-any-undefined-null-access-errors-incorrect-query-usage-or-missing-null-checks-across-kpicard-monthlyevolutionchart-activitiesbymuseumchart-audiencebyprofilechart-plannedvsachievedchart-reportsbymonthchart-reportsbymuseumchart-and-publicogeralcard",
+      "featureTitle": "Audit and fix all errors in DashboardPage.tsx and its child chart/KPI components. Ensure all data fetching hooks handle loading and error states without crashing. Fix any undefined/null access errors, incorrect query usage, or missing null checks across KPICard, MonthlyEvolutionChart, ActivitiesByMuseumChart, AudienceByProfileChart, PlannedVsAchievedChart, ReportsByMonthChart, ReportsByMuseumChart, and PublicoGeralCard.",
+      "files": [
+        "frontend/src/components/dashboard/ActivitiesByMuseumChart.tsx",
+        "frontend/src/components/dashboard/AudienceByProfileChart.tsx",
+        "frontend/src/components/dashboard/KPICard.tsx",
+        "frontend/src/components/dashboard/MonthlyEvolutionChart.tsx",
+        "frontend/src/components/dashboard/PlannedVsAchievedChart.tsx",
+        "frontend/src/components/dashboard/PublicoGeralCard.tsx",
+        "frontend/src/components/dashboard/ReportsByMonthChart.tsx",
+        "frontend/src/components/dashboard/ReportsByMuseumChart.tsx",
+        "frontend/src/pages/DashboardPage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-6"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-optimize-overall-application-robustness-add-null-undefined-guards-throughout-all-pages-and-components-ensure-all-react-query-mutations-display-toast-or-inline-error-messages-on-failure-and-remove-any-console-errors-related-to-missing-keys-invalid-types-or-unhandled-promise-rejections",
+      "featureTitle": "Optimize overall application robustness: add null/undefined guards throughout all pages and components, ensure all React Query mutations display toast or inline error messages on failure, and remove any console errors related to missing keys, invalid types, or unhandled promise rejections.",
+      "files": [
+        "frontend/src/components/ActivitiesList.tsx",
+        "frontend/src/components/ApprovalDetailView.tsx",
+        "frontend/src/components/Sidebar.tsx",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/ReportsListPage.tsx",
+        "frontend/src/pages/UserManagementPage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-7"
       ],
       "confidence": "high"
     }

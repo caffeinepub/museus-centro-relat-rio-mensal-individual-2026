@@ -46,7 +46,7 @@ export default function ApprovalDetailView({ report, onClose, userRole }: Approv
 
   const handleConfirm = async () => {
     if (!pendingStatus) return;
-    let signatureBlob: ExternalBlob | undefined = undefined;
+    let signatureBlob: ExternalBlob | null = null;
     if (signatureRef.current) {
       const base64 = signatureRef.current.getSignatureBase64();
       if (base64) {
@@ -59,7 +59,7 @@ export default function ApprovalDetailView({ report, onClose, userRole }: Approv
       {
         reportId: report.id,
         status: pendingStatus,
-        comments: comments || undefined,
+        comments: comments || null,
         signature: signatureBlob,
       },
       {
@@ -221,7 +221,6 @@ export default function ApprovalDetailView({ report, onClose, userRole }: Approv
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {/* Approve Report button - visible to coordination/administration */}
                 {canApprove && !isApproved && (
                   <Button
                     onClick={() => handleAction(Status.approved)}
@@ -233,7 +232,6 @@ export default function ApprovalDetailView({ report, onClose, userRole }: Approv
                   </Button>
                 )}
 
-                {/* Under Review */}
                 {isSubmittedOrUnderReview && (
                   <Button
                     variant="outline"
@@ -246,7 +244,6 @@ export default function ApprovalDetailView({ report, onClose, userRole }: Approv
                   </Button>
                 )}
 
-                {/* Return for Adjustment */}
                 {!isApproved && (
                   <Button
                     variant="destructive"
@@ -323,7 +320,6 @@ export default function ApprovalDetailView({ report, onClose, userRole }: Approv
 
         <Separator />
 
-        {/* Footer info */}
         {report.approvedAt && (
           <p className="text-xs text-muted-foreground text-center">
             Aprovado em: {new Date(Number(report.approvedAt) / 1_000_000).toLocaleDateString('pt-BR')}

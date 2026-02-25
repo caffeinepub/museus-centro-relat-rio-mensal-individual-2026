@@ -307,6 +307,15 @@ export const CoordinationDashboard = IDL.Record({
   'monthlyEvolution' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
   'totalActivitiesPerMuseum' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
 });
+export const FileAttachment = IDL.Record({
+  'id' : IDL.Text,
+  'name' : IDL.Text,
+  'size' : IDL.Nat,
+  'mimeType' : IDL.Text,
+  'base64Content' : IDL.Text,
+  'uploader' : IDL.Principal,
+  'uploadedAt' : Time,
+});
 export const ReportActivityExport = IDL.Record({
   'report' : Report,
   'activities' : IDL.Vec(Activity),
@@ -387,6 +396,7 @@ export const idlService = IDL.Service({
   'createActivity' : IDL.Func([ActivityCreate], [ActivityId], []),
   'createReport' : IDL.Func([ReportCreate], [ReportId], []),
   'deleteActivity' : IDL.Func([ActivityId], [], []),
+  'deleteFile' : IDL.Func([IDL.Text], [], []),
   'deleteReport' : IDL.Func([ReportId], [], []),
   'deleteUserProfile' : IDL.Func([IDL.Principal], [], []),
   'getActivitiesForReport' : IDL.Func(
@@ -402,6 +412,12 @@ export const idlService = IDL.Service({
   'getCoordinationDashboardWithFilter' : IDL.Func(
       [DashboardFilter],
       [CoordinationDashboard],
+      ['query'],
+    ),
+  'getFile' : IDL.Func([IDL.Text], [IDL.Opt(FileAttachment)], ['query']),
+  'getFilesForReport' : IDL.Func(
+      [ReportId],
+      [IDL.Vec(FileAttachment)],
       ['query'],
     ),
   'getReport' : IDL.Func([ReportId], [Report], ['query']),
@@ -423,9 +439,11 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
+  'linkFileToReport' : IDL.Func([IDL.Text, ReportId], [], []),
   'listAllActivities' : IDL.Func([], [IDL.Vec(Activity)], ['query']),
   'listAllUserProfiles' : IDL.Func([], [IDL.Vec(FullUserProfile)], ['query']),
   'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
+  'listFiles' : IDL.Func([], [IDL.Vec(FileAttachment)], ['query']),
   'listGoals' : IDL.Func([], [IDL.Vec(Goal)], ['query']),
   'listRegisteredProfessionals' : IDL.Func(
       [],
@@ -448,6 +466,7 @@ export const idlService = IDL.Service({
   'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
   'submitReport' : IDL.Func([ReportId], [], []),
   'toggleGoalActive' : IDL.Func([IDL.Nat], [], []),
+  'unlinkFileFromReport' : IDL.Func([IDL.Text, ReportId], [], []),
   'updateActivity' : IDL.Func([ActivityId, Activity], [], []),
   'updateCoordinationFields' : IDL.Func(
       [ReportId, IDL.Text, IDL.Text, IDL.Text],
@@ -457,6 +476,7 @@ export const idlService = IDL.Service({
   'updateReport' : IDL.Func([ReportId, Report], [], []),
   'updateUserProfile' : IDL.Func([IDL.Principal, UserProfile], [], []),
   'updateUserRole' : IDL.Func([IDL.Principal, AppUserRole], [], []),
+  'uploadFile' : IDL.Func([FileAttachment], [IDL.Text], []),
   'uploadSignature' : IDL.Func([ReportId, IDL.Text], [], []),
 });
 
@@ -762,6 +782,15 @@ export const idlFactory = ({ IDL }) => {
     'monthlyEvolution' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
     'totalActivitiesPerMuseum' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
   });
+  const FileAttachment = IDL.Record({
+    'id' : IDL.Text,
+    'name' : IDL.Text,
+    'size' : IDL.Nat,
+    'mimeType' : IDL.Text,
+    'base64Content' : IDL.Text,
+    'uploader' : IDL.Principal,
+    'uploadedAt' : Time,
+  });
   const ReportActivityExport = IDL.Record({
     'report' : Report,
     'activities' : IDL.Vec(Activity),
@@ -842,6 +871,7 @@ export const idlFactory = ({ IDL }) => {
     'createActivity' : IDL.Func([ActivityCreate], [ActivityId], []),
     'createReport' : IDL.Func([ReportCreate], [ReportId], []),
     'deleteActivity' : IDL.Func([ActivityId], [], []),
+    'deleteFile' : IDL.Func([IDL.Text], [], []),
     'deleteReport' : IDL.Func([ReportId], [], []),
     'deleteUserProfile' : IDL.Func([IDL.Principal], [], []),
     'getActivitiesForReport' : IDL.Func(
@@ -857,6 +887,12 @@ export const idlFactory = ({ IDL }) => {
     'getCoordinationDashboardWithFilter' : IDL.Func(
         [DashboardFilter],
         [CoordinationDashboard],
+        ['query'],
+      ),
+    'getFile' : IDL.Func([IDL.Text], [IDL.Opt(FileAttachment)], ['query']),
+    'getFilesForReport' : IDL.Func(
+        [ReportId],
+        [IDL.Vec(FileAttachment)],
         ['query'],
       ),
     'getReport' : IDL.Func([ReportId], [Report], ['query']),
@@ -882,9 +918,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
+    'linkFileToReport' : IDL.Func([IDL.Text, ReportId], [], []),
     'listAllActivities' : IDL.Func([], [IDL.Vec(Activity)], ['query']),
     'listAllUserProfiles' : IDL.Func([], [IDL.Vec(FullUserProfile)], ['query']),
     'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
+    'listFiles' : IDL.Func([], [IDL.Vec(FileAttachment)], ['query']),
     'listGoals' : IDL.Func([], [IDL.Vec(Goal)], ['query']),
     'listRegisteredProfessionals' : IDL.Func(
         [],
@@ -907,6 +945,7 @@ export const idlFactory = ({ IDL }) => {
     'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
     'submitReport' : IDL.Func([ReportId], [], []),
     'toggleGoalActive' : IDL.Func([IDL.Nat], [], []),
+    'unlinkFileFromReport' : IDL.Func([IDL.Text, ReportId], [], []),
     'updateActivity' : IDL.Func([ActivityId, Activity], [], []),
     'updateCoordinationFields' : IDL.Func(
         [ReportId, IDL.Text, IDL.Text, IDL.Text],
@@ -916,6 +955,7 @@ export const idlFactory = ({ IDL }) => {
     'updateReport' : IDL.Func([ReportId, Report], [], []),
     'updateUserProfile' : IDL.Func([IDL.Principal, UserProfile], [], []),
     'updateUserRole' : IDL.Func([IDL.Principal, AppUserRole], [], []),
+    'uploadFile' : IDL.Func([FileAttachment], [IDL.Text], []),
     'uploadSignature' : IDL.Func([ReportId, IDL.Text], [], []),
   });
 };
