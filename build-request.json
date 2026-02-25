@@ -1,88 +1,61 @@
 {
   "kind": "build_request",
-  "title": "Grant Coordinator Role Access to Create Reports and Insert Activities",
+  "title": "Add 'Público Geral' metric with period filters to Dashboard",
   "projectName": "Museus Centro",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Update the backend authorization logic so that users with the 'coordination' (coordinator) role are permitted to call the createReport (or equivalent) function, in addition to the roles that already have this permission.",
+      "text": "Add a backend query function that returns the total general audience ('público geral') aggregated across all approved/submitted reports, supporting three filter modes: (1) a specific month+year, (2) cumulative total (all time), and (3) a custom date range defined by start month+year and end month+year.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-7"
+          "msg-8"
         ],
         "quotes": [
-          "adicione ao coordenador o acesso a criar relatório e inserir atividades"
+          "no dashboard insira o publico geral no periodo do mes o acumulado ou datra customizada"
         ]
       },
       "acceptanceCriteria": [
-        "A user with the coordinator role can successfully create a new report via the backend without receiving an authorization error.",
-        "Existing roles that could already create reports continue to work without regression."
+        "A new query function exists that accepts a period filter variant: #month(month, year), #cumulative, or #customRange(startMonth, startYear, endMonth, endYear).",
+        "The function returns the sum of the 'publicoGeral' (or equivalent audience total field) from all qualifying activity/report records matching the filter.",
+        "The cumulative mode returns the sum across all records regardless of date.",
+        "The monthly mode returns the sum for the specified month and year only.",
+        "The custom range mode returns the sum for all months inclusively between start and end."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Update the backend authorization logic so that users with the 'coordination' (coordinator) role are permitted to call the createActivity (or equivalent) function, in addition to the roles that already have this permission.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-7"
-        ],
-        "quotes": [
-          "adicione ao coordenador o acesso a criar relatório e inserir atividades"
-        ]
-      },
-      "acceptanceCriteria": [
-        "A user with the coordinator role can successfully insert a new activity into a report via the backend without receiving an authorization error.",
-        "Existing roles that could already insert activities continue to work without regression."
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "Update the frontend Sidebar navigation so that the coordinator role sees menu items for creating reports (e.g., link to ReportFormPage in create mode) and inserting activities (e.g., link or access to ActivityFormPage), if those links are currently hidden or disabled for coordinators.",
+      "text": "Add a 'Público Geral' KPI card to the Dashboard page that displays the total general audience value. Include a period selector control allowing the user to switch between three modes: 'Mês Atual' (current month), 'Acumulado' (cumulative), and 'Período Customizado' (custom date range). When 'Período Customizado' is selected, show start and end month/year pickers. The KPI card should update reactively when the period selection changes.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-7"
+          "msg-8"
         ],
         "quotes": [
-          "adicione ao coordenador o acesso a criar relatório e inserir atividades"
+          "no dashboard insira o publico geral no periodo do mes o acumulado ou datra customizada"
         ]
       },
       "acceptanceCriteria": [
-        "When logged in as a coordinator, the Sidebar displays the navigation option to create a new report.",
-        "When logged in as a coordinator and viewing a report, the option to add a new activity is visible and functional.",
-        "No navigation items are broken for other roles."
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "text": "Ensure that the ReportFormPage does not render as read-only for coordinator users when accessed in create mode, and that the ActivityFormPage create form is fully editable and submittable by coordinator users.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-7"
-        ],
-        "quotes": [
-          "adicione ao coordenador o acesso a criar relatório e inserir atividades"
-        ]
-      },
-      "acceptanceCriteria": [
-        "A coordinator user can fill out and submit the report creation form without fields being disabled or the form being read-only.",
-        "A coordinator user can fill out and submit the activity creation form without fields being disabled.",
-        "Role-based read-only logic in ReportFormPage does not block coordinators in create mode."
+        "A 'Público Geral' KPI card is visible on the DashboardPage.",
+        "A period selector with three options is rendered near or within the KPI card: 'Mês Atual', 'Acumulado', 'Período Customizado'.",
+        "Selecting 'Mês Atual' fetches and displays the audience total for the current calendar month and year.",
+        "Selecting 'Acumulado' fetches and displays the cumulative audience total across all records.",
+        "Selecting 'Período Customizado' reveals two month+year pickers (start and end); the card updates when valid dates are selected.",
+        "The card displays a loading state while the query is in flight and an error state if the query fails.",
+        "The KPI card uses the existing KPICard component and visual design system for consistency."
       ]
     }
   ],
   "constraints": [
-    "Do not remove or reduce any existing permissions for other roles (professional, administration).",
-    "The coordinator role must not gain access to admin-only features such as user management or consolidated Excel export."
+    "Do not modify any files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui.",
+    "Reuse the existing KPICard component for the new metric display.",
+    "All Motoko logic must remain in the single main actor (backend/main.mo)."
   ],
   "nonGoals": [
-    "Changing the coordinator's ability to approve/reject reports (already in scope for that role).",
-    "Modifying the user approval workflow or admin-only features.",
-    "Adding new roles or changing the role model structure."
+    "Changing the visual theme or layout of any existing dashboard charts.",
+    "Adding audience breakdown by demographic profile to this new KPI (that already exists in AudienceByProfileChart).",
+    "Modifying the existing month/museum filter controls on the dashboard unrelated to the new Público Geral metric."
   ],
   "imageRequirements": {
     "required": [],

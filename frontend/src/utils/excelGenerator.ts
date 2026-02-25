@@ -142,22 +142,7 @@ export function generateExcelExport(
         getMonthLabel(report.referenceMonth),
         String(report.year),
         getStatusLabel(report.status as string),
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
+        '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
       ]);
     } else {
       for (const activity of activities) {
@@ -215,19 +200,7 @@ export function generateExcelExport(
   }
 
   rows.push([
-    'TOTAL',
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
-    '',
+    'TOTAL', '', '', '', '', '', '', '', '', '', '', '', '',
     String(totalHours),
     String(totalAudience),
     String(totalChildren),
@@ -235,9 +208,7 @@ export function generateExcelExport(
     String(totalAdults),
     String(totalElderly),
     String(totalPcd),
-    '',
-    '',
-    '',
+    '', '', '',
   ]);
 
   const csvContent = rows.map((row) => row.map(escapeCsv).join(',')).join('\n');
@@ -251,4 +222,21 @@ export function generateExcelExport(
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Convenience export that accepts a flat Activity[] array instead of a Map.
+ * Used by ReportsListPage and DashboardPage.
+ */
+export function generateConsolidatedExcel(reports: Report[], activities: Activity[]): void {
+  const activitiesByReport = new Map<string, Activity[]>();
+  for (const report of reports) {
+    activitiesByReport.set(report.id, []);
+  }
+  for (const activity of activities) {
+    const existing = activitiesByReport.get(activity.reportId) ?? [];
+    existing.push(activity);
+    activitiesByReport.set(activity.reportId, existing);
+  }
+  generateExcelExport(reports, activitiesByReport);
 }

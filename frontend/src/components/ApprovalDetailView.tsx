@@ -47,9 +47,9 @@ export default function ApprovalDetailView({ report, onClose }: ApprovalDetailVi
     try {
       await reviewReport.mutateAsync({
         reportId: report.id,
-        newStatus: Status.underReview,
-        comments: comments || null,
-        signature: null,
+        status: Status.underReview,
+        comments: comments || undefined,
+        signature: undefined,
       });
       toast.success('Relatório devolvido para revisão.');
       onClose();
@@ -77,8 +77,8 @@ export default function ApprovalDetailView({ report, onClose }: ApprovalDetailVi
 
       await reviewReport.mutateAsync({
         reportId: report.id,
-        newStatus: Status.approved,
-        comments: comments || null,
+        status: Status.approved,
+        comments: comments || undefined,
         signature: blob,
       });
       toast.success('Relatório aprovado com sucesso!');

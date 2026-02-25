@@ -18,6 +18,7 @@ export type AccessibilityOption = { 'tactileMaterial' : null } |
 export interface Activity {
   'id' : ActivityId,
   'pcd' : bigint,
+  'files' : Array<Attachment>,
   'status' : ActivityStatus,
   'evidences' : Array<EvidenceType>,
   'activityName' : string,
@@ -39,6 +40,50 @@ export interface Activity {
   'children' : bigint,
   'dedicatedHours' : [] | [bigint],
   'achievedResult' : [] | [bigint],
+  'linkedActivityId' : [] | [ActivityId],
+  'totalAudience' : bigint,
+  'productRealised' : ProductRealised,
+  'partnershipsInvolved' : [] | [string],
+  'adults' : bigint,
+  'quantity' : [] | [Quantity],
+  'attachmentsPrefix' : string,
+  'technicalJustification' : [] | [string],
+  'goalDescription' : [] | [string],
+  'reportId' : ReportId,
+  'goalNumber' : [] | [bigint],
+  'qualitativeAssessment' : string,
+  'quantitativeGoal' : [] | [bigint],
+  'youth' : bigint,
+  'contributionPercent' : [] | [number],
+  'accessibilityOptions' : Array<AccessibilityOption>,
+  'classification' : Classification,
+}
+export interface ActivityCreate {
+  'id' : ActivityId,
+  'pcd' : bigint,
+  'files' : Array<Attachment>,
+  'status' : ActivityStatus,
+  'evidences' : Array<EvidenceType>,
+  'activityName' : string,
+  'executedDescription' : string,
+  'plannedIndicator' : [] | [string],
+  'hoursNotApplicable' : boolean,
+  'partnerName' : [] | [string],
+  'partnerType' : [] | [string],
+  'cancellationReason' : [] | [string],
+  'museum' : MuseumLocation,
+  'date' : Date,
+  'objective' : [] | [string],
+  'goalStatus' : [] | [GoalStatus],
+  'achievedResults' : string,
+  'actionType' : string,
+  'hadPartnership' : boolean,
+  'audienceRange' : AudienceRange,
+  'elderly' : bigint,
+  'children' : bigint,
+  'dedicatedHours' : [] | [bigint],
+  'achievedResult' : [] | [bigint],
+  'linkedActivityId' : [] | [ActivityId],
   'totalAudience' : bigint,
   'productRealised' : ProductRealised,
   'partnershipsInvolved' : [] | [string],
@@ -57,6 +102,10 @@ export interface Activity {
   'classification' : Classification,
 }
 export type ActivityId = string;
+export interface ActivitySearchResult {
+  'id' : ActivityId,
+  'activityName' : string,
+}
 export type ActivityStatus = { 'notStarted' : null } |
   { 'cancelled' : null } |
   { 'submitted' : null } |
@@ -64,10 +113,12 @@ export type ActivityStatus = { 'notStarted' : null } |
   { 'completed' : null };
 export type AppUserRole = { 'coordination' : null } |
   { 'administration' : null } |
-  { 'professional' : null };
+  { 'professional' : null } |
+  { 'coordinator' : null };
 export type ApprovalStatus = { 'pending' : null } |
   { 'approved' : null } |
   { 'rejected' : null };
+export type Attachment = Uint8Array;
 export interface AudienceBreakdown {
   'pcd' : bigint,
   'elderly' : bigint,
@@ -75,6 +126,9 @@ export interface AudienceBreakdown {
   'adults' : bigint,
   'youth' : bigint,
 }
+export type AudienceQueryType = { 'customRange' : DateRange } |
+  { 'cumulativeTotal' : null } |
+  { 'specificMonth' : { 'month' : Month, 'year' : Year } };
 export type AudienceRange = { 'fiftyOneToHundred' : null } |
   { 'twoHundredOneToFiveHundred' : null } |
   { 'twentyOneToFifty' : null } |
@@ -108,6 +162,12 @@ export interface DashboardFilter {
   'professionalName' : [] | [string],
 }
 export type Date = bigint;
+export interface DateRange {
+  'startYear' : Year,
+  'endMonth' : Month,
+  'startMonth' : Month,
+  'endYear' : Year,
+}
 export type EvidenceType = { 'report' : null } |
   { 'other' : null } |
   { 'graphicMaterial' : null } |
@@ -238,11 +298,6 @@ export interface _CaffeineStorageRefillResult {
   'success' : [] | [boolean],
   'topped_up_amount' : [] | [bigint],
 }
-/**
- * / This file imports "administrative" components:
- * / * Authorization
- * / * External blob storage
- */
 export interface _SERVICE {
   '_caffeineStorageBlobIsLive' : ActorMethod<[Uint8Array], boolean>,
   '_caffeineStorageBlobsToDelete' : ActorMethod<[], Array<Uint8Array>>,
@@ -261,13 +316,31 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addGoal' : ActorMethod<[string, [] | [string]], undefined>,
+  /**
+   * / Approve a user.
+   * / Only the exclusive #coordination role or admin may approve users.
+   */
   'approveUser' : ActorMethod<[Principal], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'createActivity' : ActorMethod<[Activity], ActivityId>,
+  'createActivity' : ActorMethod<[ActivityCreate], ActivityId>,
   'createReport' : ActorMethod<[Report], ReportId>,
   /**
+   * / Delete an activity.
+   * / Coordinators and admins can delete any activity.
+   * / Professionals can only delete activities belonging to their own reports
+   * / when those reports are in draft or requiresAdjustment status.
+   */
+  'deleteActivity' : ActorMethod<[ActivityId], undefined>,
+  /**
+   * / Delete a report.
+   * / Coordinators and admins can delete any report.
+   * / Professionals can only delete their own reports in draft or
+   * / requiresAdjustment status.
+   */
+  'deleteReport' : ActorMethod<[ReportId], undefined>,
+  /**
    * / Delete any user profile.
-   * / Callable by coordinator or admin.
+   * / Callable by exclusive coordinator, or admin.
    */
   'deleteUserProfile' : ActorMethod<[Principal], undefined>,
   'getActivitiesForReport' : ActorMethod<[ReportId], Array<Activity>>,
@@ -282,51 +355,76 @@ export interface _SERVICE {
   >,
   'getReport' : ActorMethod<[ReportId], Report>,
   'getReportsForUser' : ActorMethod<[Principal], Array<Report>>,
+  'getTotalGeneralAudience' : ActorMethod<[AudienceQueryType], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   /**
-   * / Returns true for admins, coordinators (Daniel Perini Santos), and
-   * / explicitly approved users — no approval gate for the coordinator.
+   * / Returns true for admins, coordinators, and explicitly approved users.
    */
   'isCallerApproved' : ActorMethod<[], boolean>,
+  'listAllActivities' : ActorMethod<[], Array<Activity>>,
   'listAllUserProfiles' : ActorMethod<[], Array<FullUserProfile>>,
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
   'listGoals' : ActorMethod<[], Array<Goal>>,
+  'rejectUser' : ActorMethod<[Principal], undefined>,
   'requestApproval' : ActorMethod<[], undefined>,
+  /**
+   * / Review (change status of) a report.
+   * / The #coordination role (Daniel Perini Santos) is explicitly required for
+   * / approving users and coordinator-level users. All other coordinators may
+   * / still move reports to #underReview or #requiresAdjustment.
+   */
   'reviewReport' : ActorMethod<
     [ReportId, Status, [] | [string], [] | [ExternalBlob]],
     undefined
   >,
   /**
    * / Save the caller's own profile.
-   * / The #coordination role is only permitted when the profile name is
-   * / exactly COORDINATION_RESERVED_NAME; otherwise it is downgraded to
-   * / #professional.
+   * / The #coordination role is only permitted when the
+   * / profile name is exactly COORDINATION_RESERVED_NAME; otherwise it is
+   * / downgraded to #coordinator.
    */
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'searchActivitiesByName' : ActorMethod<[string], Array<ActivitySearchResult>>,
+  /**
+   * / Set approval status for a user.
+   * / Only admins can call this low-level function.
+   */
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
   'submitReport' : ActorMethod<[ReportId], undefined>,
   'toggleGoalActive' : ActorMethod<[bigint], undefined>,
+  /**
+   * / Update an activity.
+   * / Coordinators and admins can edit any activity.
+   * / Professionals can only edit activities belonging to their own reports
+   * / when those reports are in draft or requiresAdjustment status.
+   */
   'updateActivity' : ActorMethod<[ActivityId, Activity], undefined>,
   'updateCoordinationFields' : ActorMethod<
     [ReportId, string, string, string],
     undefined
   >,
+  /**
+   * / Update a report.
+   * / Coordinators and admins can edit any report.
+   * / Professionals can only edit their own reports when in draft or
+   * / requiresAdjustment status.
+   */
   'updateReport' : ActorMethod<[ReportId, Report], undefined>,
   /**
    * / Update any user's profile fields (name, role, museum).
-   * / Callable by coordinator or admin.
-   * / The #coordination role is only permitted when the target profile name is
-   * / exactly COORDINATION_RESERVED_NAME; otherwise it is downgraded to
-   * / #professional.
+   * / Callable by coordinator, or admin.
+   * / The #coordination role is only permitted when the
+   * / target profile name is exactly COORDINATION_RESERVED_NAME; otherwise it
+   * / is downgraded to #coordinator.
    */
   'updateUserProfile' : ActorMethod<[Principal, UserProfile], undefined>,
   /**
    * / Update only the role of a user.
-   * / Callable by coordinator or admin.
-   * / The #coordination role is only permitted when the target user's registered
-   * / name is exactly COORDINATION_RESERVED_NAME; otherwise it is downgraded to
-   * / #professional.
+   * / Callable by coordinator, or admin.
+   * / The #coordination role is only permitted when the
+   * / target user's registered name is exactly COORDINATION_RESERVED_NAME;
+   * / otherwise it is downgraded to #coordinator.
    */
   'updateUserRole' : ActorMethod<[Principal, AppUserRole], undefined>,
   'uploadSignature' : ActorMethod<[ReportId, string], undefined>,

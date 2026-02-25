@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from '@tanstack/react-router';
-import { Save, Send, ArrowLeft, Plus, AlertCircle, Info, Printer } from 'lucide-react';
+import { Save, Send, ArrowLeft, Plus, AlertCircle, Info } from 'lucide-react';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import {
   useGetCallerUserProfile,
@@ -20,12 +20,45 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import ActivitiesList from '../components/ActivitiesList';
 import ExportReportPDFButton from '../components/ExportReportPDFButton';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 2 + i);
+
+function emptyReport(authorId: string, museum: MuseumLocation): Report {
+  return {
+    id: '',
+    protocolNumber: '',
+    referenceMonth: Month.february,
+    year: BigInt(CURRENT_YEAR),
+    professionalName: '',
+    role: '',
+    mainMuseum: museum,
+    workedAtOtherMuseum: false,
+    otherMuseum: undefined,
+    executiveSummary: '',
+    positivePoints: '',
+    difficulties: '',
+    suggestions: '',
+    identifiedOpportunity: '',
+    opportunityCategory: '',
+    expectedImpact: '',
+    status: Status.draft,
+    sendDate: undefined,
+    signature: undefined,
+    authorId: authorId as unknown as import('../backend').Report['authorId'],
+    generalExecutiveSummary: undefined,
+    consolidatedGoals: undefined,
+    institutionalObservations: undefined,
+    submittedAt: undefined,
+    approvedAt: undefined,
+    coordinatorComments: undefined,
+    coordinatorSignature: undefined,
+  };
+}
 
 export default function ReportFormPage() {
   const { reportId } = useParams({ strict: false }) as { reportId?: string };
@@ -34,145 +67,102 @@ export default function ReportFormPage() {
   const { data: userProfile } = useGetCallerUserProfile();
 
   const isCoordination = userProfile?.appRole === AppUserRole.coordination;
+  const isCoordinator = userProfile?.appRole === AppUserRole.coordinator;
   const isCoordOrAdmin =
     userProfile?.appRole === AppUserRole.coordination ||
+    userProfile?.appRole === AppUserRole.coordinator ||
     userProfile?.appRole === AppUserRole.administration;
 
-  const { data: existingReport, isLoading: reportLoading } = useReport(reportId);
-  const { data: activities = [] } = useActivitiesForReport(reportId);
+  const isNew = !reportId || reportId === 'new';
+
+  const { data: existingReport, isLoading: reportLoading } = useReport(isNew ? undefined : reportId);
+  const { data: activities } = useActivitiesForReport(isNew ? undefined : reportId);
 
   const createReport = useCreateReport();
   const updateReport = useUpdateReport();
   const submitReport = useSubmitReport();
 
-  const isNew = !reportId;
-  const principalStr = identity?.getPrincipal().toString() ?? '';
-
-  const [formData, setFormData] = useState<Partial<Report>>({});
+  const [form, setForm] = useState<Report | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialized) return;
-    if (isNew && userProfile && identity) {
-      setFormData({
-        referenceMonth: Month.february,
-        year: BigInt(CURRENT_YEAR),
-        professionalName: userProfile.name,
-        role: userProfile.appRole,
-        mainMuseum: userProfile.museum,
-        workedAtOtherMuseum: false,
-        executiveSummary: '',
-        positivePoints: '',
-        difficulties: '',
-        suggestions: '',
-        identifiedOpportunity: '',
-        opportunityCategory: '',
-        expectedImpact: '',
-        status: Status.draft,
-      });
+    if (isNew && identity && userProfile) {
+      setForm(emptyReport(identity.getPrincipal().toString(), userProfile.museum));
       setInitialized(true);
     } else if (!isNew && existingReport) {
-      setFormData(existingReport);
+      setForm(existingReport);
       setInitialized(true);
     }
-  }, [isNew, existingReport, userProfile, identity, initialized]);
+  }, [isNew, existingReport, identity, userProfile, initialized]);
 
-  // Determine if the form is read-only
-  const isOwnReport = !existingReport || existingReport.authorId?.toString() === principalStr;
-  const isSubmittedOrApproved =
-    existingReport?.status === Status.submitted ||
-    existingReport?.status === Status.approved ||
-    existingReport?.status === Status.underReview;
-
-  // Report fields are read-only when:
-  // - coord/admin viewing someone else's report (they use Approvals page for that)
-  // - non-coord/admin with a submitted/approved/underReview report
-  const isReadOnly = !isNew && (
-    (isCoordOrAdmin && !isOwnReport) ||
-    (!isCoordOrAdmin && isSubmittedOrApproved)
-  );
-
-  const canEdit = isNew || !isReadOnly;
-
-  // Coordinators can add/edit activities on any report (own or others'),
-  // since the backend's canWrite allows coordination role on all reports.
-  const canEditActivities = isCoordination || canEdit;
-
-  const canSubmit =
-    !isNew &&
-    isOwnReport &&
-    (existingReport?.status === Status.draft || existingReport?.status === Status.requiresAdjustment);
-
-  const handleChange = (field: keyof Report, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const updateField = <K extends keyof Report>(key: K, value: Report[K]) => {
+    setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
 
+  // Determine edit permissions
+  const isOwner = form?.authorId?.toString() === identity?.getPrincipal().toString();
+  const isEditableStatus = form?.status === Status.draft || form?.status === Status.requiresAdjustment;
+  const canEditReportFields = isCoordOrAdmin || (isOwner && isEditableStatus);
+  const canEditActivities = isCoordOrAdmin || (isOwner && isEditableStatus);
+
   const handleSave = async () => {
-    if (!formData || !identity) return;
+    if (!form) return;
+    setError(null);
 
     try {
-      const reportPayload: Report = {
-        id: reportId ?? '',
-        protocolNumber: existingReport?.protocolNumber ?? '',
-        referenceMonth: (formData.referenceMonth ?? Month.february) as Month,
-        year: formData.year ?? BigInt(CURRENT_YEAR),
-        professionalName: formData.professionalName ?? userProfile?.name ?? '',
-        role: formData.role ?? userProfile?.appRole ?? '',
-        mainMuseum: (formData.mainMuseum ?? userProfile?.museum ?? MuseumLocation.equipePrincipal) as MuseumLocation,
-        workedAtOtherMuseum: formData.workedAtOtherMuseum ?? false,
-        otherMuseum: formData.otherMuseum,
-        executiveSummary: formData.executiveSummary ?? '',
-        positivePoints: formData.positivePoints ?? '',
-        difficulties: formData.difficulties ?? '',
-        suggestions: formData.suggestions ?? '',
-        identifiedOpportunity: formData.identifiedOpportunity ?? '',
-        opportunityCategory: formData.opportunityCategory ?? '',
-        expectedImpact: formData.expectedImpact ?? '',
-        status: formData.status ?? Status.draft,
-        sendDate: formData.sendDate,
-        signature: formData.signature,
-        authorId: identity.getPrincipal() as unknown as Report['authorId'],
-        generalExecutiveSummary: formData.generalExecutiveSummary,
-        consolidatedGoals: formData.consolidatedGoals,
-        institutionalObservations: formData.institutionalObservations,
-        submittedAt: formData.submittedAt,
-        approvedAt: formData.approvedAt,
-        coordinatorComments: formData.coordinatorComments,
-        coordinatorSignature: formData.coordinatorSignature,
-      };
-
       if (isNew) {
-        const newId = await createReport.mutateAsync(reportPayload);
+        const newId = await createReport.mutateAsync(form);
         toast.success('Relatório criado com sucesso!');
-        navigate({ to: '/reports/$reportId', params: { reportId: newId } });
+        navigate({ to: `/reports/${newId}` });
       } else {
-        await updateReport.mutateAsync({ reportId: reportId!, updated: reportPayload });
-        toast.success('Relatório salvo com sucesso!');
+        await updateReport.mutateAsync({ reportId: reportId!, report: form });
+        toast.success('Relatório atualizado com sucesso!');
       }
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Erro ao salvar relatório';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao salvar relatório.';
+      setError(msg);
       toast.error(msg);
     }
   };
 
   const handleSubmit = async () => {
-    if (!reportId) return;
+    if (!form || !reportId) return;
+    setError(null);
+
     try {
+      // Save first if needed
+      if (form.status === Status.draft) {
+        await updateReport.mutateAsync({ reportId, report: form });
+      }
       await submitReport.mutateAsync(reportId);
       toast.success('Relatório enviado para aprovação!');
       navigate({ to: '/reports' });
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Erro ao enviar relatório';
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao enviar relatório.';
+      setError(msg);
       toast.error(msg);
     }
   };
 
   if (reportLoading || (!initialized && !isNew)) {
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-4">
-        <Skeleton className="h-8 w-48" />
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-4">
+        <Skeleton className="h-8 w-64" />
         <Skeleton className="h-64 w-full" />
         <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  if (!form) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>Erro ao carregar relatório.</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -181,272 +171,344 @@ export default function ReportFormPage() {
   const isSubmitting = submitReport.isPending;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate({ to: '/reports' })}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {isNew ? 'Novo Relatório' : 'Editar Relatório'}
-            </h1>
-            {existingReport && (
-              <p className="text-sm text-muted-foreground font-mono">{existingReport.protocolNumber}</p>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {existingReport && (
-            <ExportReportPDFButton report={existingReport} activities={activities} />
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate({ to: '/reports' })}
+          className="rounded-full"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-foreground">
+            {isNew ? 'Novo Relatório' : 'Editar Relatório'}
+          </h1>
+          {!isNew && form.protocolNumber && (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Protocolo: {form.protocolNumber}
+            </p>
           )}
-          {canEdit && (
+        </div>
+        <div className="flex items-center gap-2">
+          {!isNew && <ExportReportPDFButton report={form} activities={activities ?? []} />}
+          {canEditReportFields && (
             <Button onClick={handleSave} disabled={isSaving} variant="outline">
               {isSaving ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <>
+                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                   Salvando...
-                </span>
+                </>
               ) : (
-                <span className="flex items-center gap-2">
-                  <Save className="w-4 h-4" />
+                <>
+                  <Save className="w-4 h-4 mr-2" />
                   Salvar
-                </span>
+                </>
               )}
             </Button>
           )}
-          {canSubmit && (
+          {!isNew && isOwner && isEditableStatus && (
             <Button onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <>
+                  <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                   Enviando...
-                </span>
+                </>
               ) : (
-                <span className="flex items-center gap-2">
-                  <Send className="w-4 h-4" />
+                <>
+                  <Send className="w-4 h-4 mr-2" />
                   Enviar para Aprovação
-                </span>
+                </>
               )}
             </Button>
           )}
         </div>
       </div>
 
-      {/* Read-only alerts */}
-      {isReadOnly && isCoordOrAdmin && !isOwnReport && (
-        <Alert className="mb-4">
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            Você está visualizando o relatório de outro profissional. Para aprovar ou devolver, acesse a página de Aprovações. Você pode inserir atividades neste relatório.
-          </AlertDescription>
-        </Alert>
-      )}
-      {isReadOnly && !isCoordOrAdmin && isSubmittedOrApproved && (
-        <Alert className="mb-4">
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            Este relatório foi enviado e não pode mais ser editado. Aguarde o retorno do coordenador.
-          </AlertDescription>
-        </Alert>
-      )}
-      {existingReport?.coordinatorComments && (
-        <Alert className="mb-4" variant="destructive">
+      {error && (
+        <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {!canEditReportFields && !isNew && (
+        <Alert>
+          <Info className="h-4 w-4" />
           <AlertDescription>
-            <strong>Comentário do coordenador:</strong> {existingReport.coordinatorComments}
+            Este relatório está em modo somente leitura.
+            {isCoordOrAdmin && ' Coordenadores podem inserir e editar atividades.'}
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Form */}
-      <div className="space-y-6">
-        {/* Basic Info */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Informações Básicas</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="professionalName">Nome do Profissional</Label>
-              <Input
-                id="professionalName"
-                value={formData.professionalName ?? ''}
-                onChange={(e) => handleChange('professionalName', e.target.value)}
-                disabled={isReadOnly}
-                className="mt-1"
+      {/* Basic Info */}
+      <div className="card-section">
+        <h2 className="section-title">Informações Básicas</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="professionalName">Nome do Profissional *</Label>
+            <Input
+              id="professionalName"
+              value={form.professionalName}
+              onChange={(e) => updateField('professionalName', e.target.value)}
+              disabled={!canEditReportFields}
+              placeholder="Nome completo"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="role">Função *</Label>
+            <Input
+              id="role"
+              value={form.role}
+              onChange={(e) => updateField('role', e.target.value)}
+              disabled={!canEditReportFields}
+              placeholder="Cargo ou função"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="referenceMonth">Mês de Referência *</Label>
+            <Select
+              value={form.referenceMonth}
+              onValueChange={(v) => updateField('referenceMonth', v as Month)}
+              disabled={!canEditReportFields}
+            >
+              <SelectTrigger id="referenceMonth">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTHS.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {getMonthLabel(m)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="year">Ano *</Label>
+            <Select
+              value={String(form.year)}
+              onValueChange={(v) => updateField('year', BigInt(v))}
+              disabled={!canEditReportFields}
+            >
+              <SelectTrigger id="year">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {YEARS.map((y) => (
+                  <SelectItem key={y} value={String(y)}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="mainMuseum">Equipe/Museu Principal *</Label>
+            <Select
+              value={form.mainMuseum}
+              onValueChange={(v) => updateField('mainMuseum', v as MuseumLocation)}
+              disabled={!canEditReportFields}
+            >
+              <SelectTrigger id="mainMuseum">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MUSEUM_LOCATIONS.map((loc) => (
+                  <SelectItem key={loc} value={loc}>
+                    {getMuseumLabel(loc)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-2">
+              <Checkbox
+                checked={form.workedAtOtherMuseum}
+                onCheckedChange={(checked) => updateField('workedAtOtherMuseum', !!checked)}
+                disabled={!canEditReportFields}
               />
-            </div>
-            <div>
-              <Label htmlFor="role">Cargo/Função</Label>
+              Atuou em outro museu?
+            </Label>
+            {form.workedAtOtherMuseum && (
               <Input
-                id="role"
-                value={formData.role ?? ''}
-                onChange={(e) => handleChange('role', e.target.value)}
-                disabled={isReadOnly}
-                className="mt-1"
+                value={form.otherMuseum ?? ''}
+                onChange={(e) => updateField('otherMuseum', e.target.value || undefined)}
+                disabled={!canEditReportFields}
+                placeholder="Nome do outro museu"
               />
-            </div>
-            <div>
-              <Label>Mês de Referência</Label>
-              <Select
-                value={(formData.referenceMonth as string) ?? Month.february}
-                onValueChange={(v) => handleChange('referenceMonth', v as Month)}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((m) => (
-                    <SelectItem key={m} value={m}>{getMonthLabel(m)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Ano</Label>
-              <Select
-                value={formData.year?.toString() ?? CURRENT_YEAR.toString()}
-                onValueChange={(v) => handleChange('year', BigInt(v))}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {YEARS.map((y) => (
-                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Equipe/Museu Principal</Label>
-              <Select
-                value={(formData.mainMuseum as string) ?? MuseumLocation.equipePrincipal}
-                onValueChange={(v) => handleChange('mainMuseum', v as MuseumLocation)}
-                disabled={isReadOnly}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MUSEUM_LOCATIONS.map((m) => (
-                    <SelectItem key={m} value={m}>{getMuseumLabel(m)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            )}
           </div>
         </div>
-
-        {/* Narrative Fields */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Narrativa do Relatório</h2>
-          <div className="space-y-4">
-            {[
-              { field: 'executiveSummary', label: 'Resumo Executivo' },
-              { field: 'positivePoints', label: 'Pontos Positivos' },
-              { field: 'difficulties', label: 'Dificuldades' },
-              { field: 'suggestions', label: 'Sugestões' },
-            ].map(({ field, label }) => (
-              <div key={field}>
-                <Label htmlFor={field}>{label}</Label>
-                <Textarea
-                  id={field}
-                  value={(formData[field as keyof Report] as string) ?? ''}
-                  onChange={(e) => handleChange(field as keyof Report, e.target.value)}
-                  disabled={isReadOnly}
-                  className="mt-1 min-h-24"
-                  placeholder={`Digite ${label.toLowerCase()}...`}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Opportunities */}
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Oportunidades e Impacto</h2>
-          <div className="space-y-4">
-            {[
-              { field: 'identifiedOpportunity', label: 'Oportunidade Identificada' },
-              { field: 'opportunityCategory', label: 'Categoria da Oportunidade' },
-              { field: 'expectedImpact', label: 'Impacto Esperado' },
-            ].map(({ field, label }) => (
-              <div key={field}>
-                <Label htmlFor={field}>{label}</Label>
-                <Textarea
-                  id={field}
-                  value={(formData[field as keyof Report] as string) ?? ''}
-                  onChange={(e) => handleChange(field as keyof Report, e.target.value)}
-                  disabled={isReadOnly}
-                  className="mt-1 min-h-20"
-                  placeholder={`Digite ${label.toLowerCase()}...`}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Coordination Fields (only for coord/admin) */}
-        {isCoordOrAdmin && existingReport && (
-          <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Campos de Coordenação</h2>
-            <div className="space-y-4">
-              {[
-                { field: 'generalExecutiveSummary', label: 'Resumo Executivo Geral' },
-                { field: 'consolidatedGoals', label: 'Metas Consolidadas' },
-                { field: 'institutionalObservations', label: 'Observações Institucionais' },
-              ].map(({ field, label }) => (
-                <div key={field}>
-                  <Label htmlFor={field}>{label}</Label>
-                  <Textarea
-                    id={field}
-                    value={(formData[field as keyof Report] as string) ?? ''}
-                    onChange={(e) => handleChange(field as keyof Report, e.target.value)}
-                    className="mt-1 min-h-20"
-                    placeholder={`Digite ${label.toLowerCase()}...`}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Activities Section */}
-        {!isNew && reportId && (
-          <div className="bg-card border border-border rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground">
-                Atividades ({activities.length})
-              </h2>
-              {canEditActivities && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    navigate({
-                      to: '/reports/$reportId/activities/new',
-                      params: { reportId: reportId! },
-                    })
-                  }
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nova Atividade
-                </Button>
-              )}
-            </div>
-            <ActivitiesList reportId={reportId} canEdit={canEditActivities} />
-          </div>
-        )}
       </div>
+
+      {/* Report Content */}
+      <div className="card-section">
+        <h2 className="section-title">Conteúdo do Relatório</h2>
+        <div className="space-y-5">
+          {[
+            { key: 'executiveSummary' as const, label: 'Resumo Executivo *', placeholder: 'Descreva o resumo executivo do período' },
+            { key: 'positivePoints' as const, label: 'Pontos Positivos *', placeholder: 'Descreva os pontos positivos do período' },
+            { key: 'difficulties' as const, label: 'Dificuldades *', placeholder: 'Descreva as dificuldades encontradas' },
+            { key: 'suggestions' as const, label: 'Sugestões *', placeholder: 'Descreva suas sugestões de melhoria' },
+          ].map(({ key, label, placeholder }) => (
+            <div key={key} className="space-y-1.5">
+              <Label htmlFor={key}>{label}</Label>
+              <Textarea
+                id={key}
+                value={form[key] as string}
+                onChange={(e) => updateField(key, e.target.value)}
+                disabled={!canEditReportFields}
+                placeholder={placeholder}
+                rows={3}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Opportunities */}
+      <div className="card-section">
+        <h2 className="section-title">Oportunidades e Impacto</h2>
+        <div className="space-y-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="identifiedOpportunity">Oportunidade Identificada</Label>
+            <Textarea
+              id="identifiedOpportunity"
+              value={form.identifiedOpportunity}
+              onChange={(e) => updateField('identifiedOpportunity', e.target.value)}
+              disabled={!canEditReportFields}
+              placeholder="Descreva a oportunidade identificada"
+              rows={2}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="opportunityCategory">Categoria da Oportunidade</Label>
+            <Input
+              id="opportunityCategory"
+              value={form.opportunityCategory}
+              onChange={(e) => updateField('opportunityCategory', e.target.value)}
+              disabled={!canEditReportFields}
+              placeholder="Ex: Educação, Cultura, Tecnologia"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="expectedImpact">Impacto Esperado</Label>
+            <Textarea
+              id="expectedImpact"
+              value={form.expectedImpact}
+              onChange={(e) => updateField('expectedImpact', e.target.value)}
+              disabled={!canEditReportFields}
+              placeholder="Descreva o impacto esperado"
+              rows={2}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Coordination Fields (read-only for non-coordinators) */}
+      {(isCoordOrAdmin || form.generalExecutiveSummary || form.consolidatedGoals || form.institutionalObservations) && (
+        <div className="card-section">
+          <h2 className="section-title">Campos da Coordenação</h2>
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="generalExecutiveSummary">Resumo Executivo Geral</Label>
+              <Textarea
+                id="generalExecutiveSummary"
+                value={form.generalExecutiveSummary ?? ''}
+                onChange={(e) => updateField('generalExecutiveSummary', e.target.value || undefined)}
+                disabled={!isCoordOrAdmin}
+                placeholder="Resumo executivo consolidado pela coordenação"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="consolidatedGoals">Metas Consolidadas</Label>
+              <Textarea
+                id="consolidatedGoals"
+                value={form.consolidatedGoals ?? ''}
+                onChange={(e) => updateField('consolidatedGoals', e.target.value || undefined)}
+                disabled={!isCoordOrAdmin}
+                placeholder="Metas consolidadas pela coordenação"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="institutionalObservations">Observações Institucionais</Label>
+              <Textarea
+                id="institutionalObservations"
+                value={form.institutionalObservations ?? ''}
+                onChange={(e) => updateField('institutionalObservations', e.target.value || undefined)}
+                disabled={!isCoordOrAdmin}
+                placeholder="Observações institucionais"
+                rows={3}
+              />
+            </div>
+            {form.coordinatorComments && (
+              <div className="space-y-1.5">
+                <Label>Comentários do Coordenador</Label>
+                <div className="p-3 bg-muted/50 rounded-lg text-sm text-foreground border border-border">
+                  {form.coordinatorComments}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Activities */}
+      {!isNew && (
+        <div className="card-section">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="section-title mb-0">Atividades</h2>
+            {canEditActivities && (
+              <Button
+                size="sm"
+                onClick={() => navigate({ to: `/reports/${reportId}/activities/new` })}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nova Atividade
+              </Button>
+            )}
+          </div>
+          <ActivitiesList reportId={reportId!} canEdit={canEditActivities} />
+        </div>
+      )}
+
+      {/* Footer actions */}
+      {canEditReportFields && (
+        <div className="flex justify-end gap-3 pt-4 border-t border-border">
+          <Button variant="outline" onClick={() => navigate({ to: '/reports' })}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <svg className="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                {isNew ? 'Criar Relatório' : 'Salvar Alterações'}
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

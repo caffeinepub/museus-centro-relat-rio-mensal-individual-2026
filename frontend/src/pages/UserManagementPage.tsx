@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
-import { UserCheck, UserX, Edit, Trash2, Shield, AlertCircle, Users } from 'lucide-react';
+import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import {
-  useListAllUserProfiles,
+  useAllUserProfiles,
   useApproveUser,
-  useUpdateUserProfile,
+  useRejectUser,
+  useUpdateUserRole,
   useDeleteUserProfile,
+  useGetCallerUserProfile,
+  useIsCoordinadorGeral,
 } from '../hooks/useQueries';
-import { AppUserRole, MuseumLocation, ApprovalStatus } from '../backend';
-import type { FullUserProfile, UserProfile } from '../backend';
-import { getMuseumLabel, MUSEUM_LOCATIONS } from '../utils/labels';
+import { AppUserRole, MuseumLocation, type FullUserProfile } from '../backend';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -23,288 +21,373 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Loader2, UserCheck, UserX, Trash2, Edit, Shield, ShieldAlert } from 'lucide-react';
+import { MUSEUM_LOCATIONS, getMuseumLabel } from '../utils/labels';
+import type { Principal } from '@dfinity/principal';
 
 const ROLE_LABELS: Record<AppUserRole, string> = {
   [AppUserRole.professional]: 'Profissional',
-  [AppUserRole.coordination]: 'Coordenação',
+  [AppUserRole.coordination]: 'Coordenação Geral',
+  [AppUserRole.coordinator]: 'Coordenador',
   [AppUserRole.administration]: 'Administração',
 };
 
-const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, string> = {
-  [ApprovalStatus.pending]: 'Pendente',
-  [ApprovalStatus.approved]: 'Aprovado',
-  [ApprovalStatus.rejected]: 'Rejeitado',
+const APPROVAL_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pendente',
+  approved: 'Aprovado',
+  rejected: 'Rejeitado',
 };
 
-function getApprovalBadgeClass(status: ApprovalStatus): string {
-  switch (status) {
-    case ApprovalStatus.approved: return 'bg-success/10 text-success border-success/20';
-    case ApprovalStatus.pending: return 'bg-warning/10 text-warning border-warning/20';
-    case ApprovalStatus.rejected: return 'bg-destructive/10 text-destructive border-destructive/20';
-    default: return 'bg-muted text-muted-foreground border-border';
-  }
-}
-
-function PendingUsersSection({ profiles }: { profiles: FullUserProfile[] }) {
-  const approveUser = useApproveUser();
-  const pendingUsers = profiles.filter((p) => p.approvalStatus === ApprovalStatus.pending);
-
-  if (pendingUsers.length === 0) {
-    return (
-      <div className="bg-card border border-border rounded-xl p-6 mb-6">
-        <h2 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-          <UserCheck className="w-5 h-5 text-success" />
-          Aprovações Pendentes
-        </h2>
-        <p className="text-muted-foreground text-sm">Nenhum usuário aguardando aprovação.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-card border border-warning/30 rounded-xl p-6 mb-6">
-      <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-        <AlertCircle className="w-5 h-5 text-warning" />
-        Aprovações Pendentes ({pendingUsers.length})
-      </h2>
-      <div className="space-y-3">
-        {pendingUsers.map((user) => (
-          <div
-            key={user.principal.toString()}
-            className="flex items-center justify-between p-3 bg-warning/5 border border-warning/20 rounded-lg"
-          >
-            <div>
-              <p className="font-medium text-foreground">{user.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {ROLE_LABELS[user.appRole]} · {getMuseumLabel(user.museum)}
-              </p>
-            </div>
-            <Button
-              size="sm"
-              onClick={async () => {
-                try {
-                  await approveUser.mutateAsync(user.principal);
-                  toast.success(`${user.name} aprovado com sucesso!`);
-                } catch {
-                  toast.error('Erro ao aprovar usuário.');
-                }
-              }}
-              disabled={approveUser.isPending}
-            >
-              <UserCheck className="w-4 h-4 mr-2" />
-              Aprovar
-            </Button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+const APPROVAL_STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  pending: 'secondary',
+  approved: 'default',
+  rejected: 'destructive',
+};
 
 export default function UserManagementPage() {
-  const { data: profiles = [], isLoading } = useListAllUserProfiles();
-  const updateUserProfile = useUpdateUserProfile();
+  const { identity } = useInternetIdentity();
+  const { data: currentUserProfile } = useGetCallerUserProfile();
+  const isCoordinadorGeral = useIsCoordinadorGeral(currentUserProfile);
+
+  const { data: users, isLoading } = useAllUserProfiles();
+  const approveUser = useApproveUser();
+  const rejectUser = useRejectUser();
+  const updateUserRole = useUpdateUserRole();
   const deleteUserProfile = useDeleteUserProfile();
 
   const [editingUser, setEditingUser] = useState<FullUserProfile | null>(null);
-  const [editForm, setEditForm] = useState<UserProfile | null>(null);
+  const [selectedRole, setSelectedRole] = useState<AppUserRole>(AppUserRole.professional);
+  const [selectedMuseum, setSelectedMuseum] = useState<MuseumLocation>(MuseumLocation.equipePrincipal);
   const [deletingUser, setDeletingUser] = useState<FullUserProfile | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const handleEditOpen = (user: FullUserProfile) => {
-    setEditingUser(user);
-    setEditForm({ name: user.name, appRole: user.appRole, museum: user.museum });
+  const handleApprove = async (user: FullUserProfile) => {
+    setActionError(null);
+    try {
+      await approveUser.mutateAsync(user.principal as unknown as Principal);
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Erro ao aprovar usuário.');
+    }
   };
 
-  const handleEditSave = async () => {
-    if (!editingUser || !editForm) return;
+  const handleReject = async (user: FullUserProfile) => {
+    setActionError(null);
     try {
-      await updateUserProfile.mutateAsync({ user: editingUser.principal, updatedProfile: editForm });
-      toast.success('Perfil atualizado com sucesso!');
+      await rejectUser.mutateAsync(user.principal as unknown as Principal);
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Erro ao rejeitar usuário.');
+    }
+  };
+
+  const handleEditRole = (user: FullUserProfile) => {
+    setEditingUser(user);
+    setSelectedRole(user.appRole);
+    setSelectedMuseum(user.museum);
+    setActionError(null);
+  };
+
+  const handleSaveRole = async () => {
+    if (!editingUser) return;
+    setActionError(null);
+
+    // Prevent assigning coordination role to non-Daniel users
+    if (selectedRole === AppUserRole.coordination && editingUser.name !== 'Daniel Perini Santos') {
+      setActionError('O papel de Coordenação Geral só pode ser atribuído a Daniel Perini Santos.');
+      return;
+    }
+
+    try {
+      await updateUserRole.mutateAsync({
+        user: editingUser.principal as unknown as Principal,
+        role: selectedRole,
+      });
       setEditingUser(null);
-      setEditForm(null);
-    } catch {
-      toast.error('Erro ao atualizar perfil.');
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Erro ao atualizar papel.');
     }
   };
 
   const handleDelete = async () => {
     if (!deletingUser) return;
+    setActionError(null);
     try {
-      await deleteUserProfile.mutateAsync(deletingUser.principal);
-      toast.success('Usuário removido com sucesso!');
+      await deleteUserProfile.mutateAsync(deletingUser.principal as unknown as Principal);
       setDeletingUser(null);
-    } catch {
-      toast.error('Erro ao remover usuário.');
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Erro ao excluir usuário.');
     }
   };
 
-  const activeProfiles = profiles.filter((p) => p.approvalStatus !== ApprovalStatus.pending);
+  const canApproveCoordinator = (user: FullUserProfile): boolean => {
+    if (user.appRole === AppUserRole.coordinator || user.appRole === AppUserRole.coordination) {
+      return isCoordinadorGeral;
+    }
+    return isCoordinadorGeral;
+  };
+
+  const pendingUsers = users?.filter((u) => u.approvalStatus === 'pending') ?? [];
+  const allUsers = users ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Users className="w-6 h-6" />
-          Gestão de Usuários
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Gerencie usuários, aprovações e permissões do sistema.
-        </p>
-      </div>
-
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+    <TooltipProvider>
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Gestão de Usuários</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Gerencie aprovações, papéis e permissões dos usuários
+            </p>
+          </div>
+          {isCoordinadorGeral && (
+            <Badge variant="default" className="flex items-center gap-1.5 px-3 py-1.5">
+              <Shield className="w-3.5 h-3.5" />
+              Coordenador Geral
+            </Badge>
+          )}
         </div>
-      ) : (
-        <>
-          <PendingUsersSection profiles={profiles} />
 
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="p-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">
-                Todos os Usuários ({profiles.length})
-              </h2>
-            </div>
-            {profiles.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                Nenhum usuário cadastrado.
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {profiles.map((user) => (
-                  <div key={user.principal.toString()} className="p-4 flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-foreground truncate">{user.name}</p>
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getApprovalBadgeClass(user.approvalStatus)}`}
+        {actionError && (
+          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+            {actionError}
+          </div>
+        )}
+
+        {/* Pending Approvals */}
+        {pendingUsers.length > 0 && (
+          <div className="card-section">
+            <h2 className="section-title flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-warning" />
+              Aprovações Pendentes
+              <Badge variant="secondary">{pendingUsers.length}</Badge>
+            </h2>
+            <div className="space-y-3">
+              {pendingUsers.map((user) => (
+                <div
+                  key={user.principal.toString()}
+                  className="flex items-center justify-between p-4 bg-warning/5 border border-warning/20 rounded-lg"
+                >
+                  <div>
+                    <p className="font-medium text-foreground">{user.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {ROLE_LABELS[user.appRole]} · {getMuseumLabel(user.museum)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {canApproveCoordinator(user) ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => handleApprove(user)}
+                          disabled={approveUser.isPending}
                         >
-                          {APPROVAL_STATUS_LABELS[user.approvalStatus]}
-                        </span>
+                          {approveUser.isPending ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <UserCheck className="w-3.5 h-3.5 mr-1.5" />
+                          )}
+                          Aprovar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleReject(user)}
+                          disabled={rejectUser.isPending}
+                        >
+                          {rejectUser.isPending ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <UserX className="w-3.5 h-3.5 mr-1.5" />
+                          )}
+                          Rejeitar
+                        </Button>
+                      </>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Button size="sm" variant="outline" disabled>
+                              <Shield className="w-3.5 h-3.5 mr-1.5" />
+                              Restrito
+                            </Button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Apenas o Coordenador Geral pode aprovar usuários
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* All Users */}
+        <div className="card-section">
+          <h2 className="section-title">Todos os Usuários</h2>
+          <div className="space-y-2">
+            {allUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Nenhum usuário cadastrado.
+              </p>
+            ) : (
+              allUsers.map((user) => (
+                <div
+                  key={user.principal.toString()}
+                  className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground text-sm">{user.name}</p>
+                        {user.name === 'Daniel Perini Santos' && (
+                          <Badge variant="default" className="text-xs px-1.5 py-0">
+                            <Shield className="w-2.5 h-2.5 mr-1" />
+                            Coord. Geral
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {ROLE_LABELS[user.appRole]} · {getMuseumLabel(user.museum)}
                       </p>
-                      <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">
-                        {user.principal.toString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditOpen(user)}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => setDeletingUser(user)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
                     </div>
                   </div>
-                ))}
-              </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={APPROVAL_STATUS_VARIANTS[user.approvalStatus as string] ?? 'secondary'}>
+                      {APPROVAL_STATUS_LABELS[user.approvalStatus as string] ?? user.approvalStatus}
+                    </Badge>
+                    {isCoordinadorGeral && (
+                      <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleEditRole(user)}
+                          className="w-8 h-8"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setDeletingUser(user)}
+                          className="w-8 h-8 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))
             )}
           </div>
-        </>
-      )}
+        </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingUser} onOpenChange={(open) => { if (!open) { setEditingUser(null); setEditForm(null); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Usuário</DialogTitle>
-            <DialogDescription>Atualize as informações do usuário.</DialogDescription>
-          </DialogHeader>
-          {editForm && (
+        {/* Edit Role Dialog */}
+        <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Papel do Usuário</DialogTitle>
+              <DialogDescription>
+                Altere o papel de {editingUser?.name}
+              </DialogDescription>
+            </DialogHeader>
             <div className="space-y-4 py-2">
-              <div>
-                <Label htmlFor="editName">Nome</Label>
-                <Input
-                  id="editName"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Função</Label>
+              {actionError && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-destructive text-sm">
+                  {actionError}
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Papel</label>
                 <Select
-                  value={editForm.appRole}
-                  onValueChange={(v) => setEditForm({ ...editForm, appRole: v as AppUserRole })}
+                  value={selectedRole}
+                  onValueChange={(v) => setSelectedRole(v as AppUserRole)}
                 >
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(AppUserRole).map((r) => (
-                      <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Equipe/Museu</Label>
-                <Select
-                  value={editForm.museum}
-                  onValueChange={(v) => setEditForm({ ...editForm, museum: v as MuseumLocation })}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MUSEUM_LOCATIONS.map((m) => (
-                      <SelectItem key={m} value={m}>{getMuseumLabel(m)}</SelectItem>
+                    {Object.values(AppUserRole).map((role) => (
+                      <SelectItem
+                        key={role}
+                        value={role}
+                        disabled={role === AppUserRole.coordination && editingUser?.name !== 'Daniel Perini Santos'}
+                      >
+                        {ROLE_LABELS[role]}
+                        {role === AppUserRole.coordination && editingUser?.name !== 'Daniel Perini Santos' && ' (restrito)'}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setEditingUser(null); setEditForm(null); }}>
-              Cancelar
-            </Button>
-            <Button onClick={handleEditSave} disabled={updateUserProfile.isPending}>
-              {updateUserProfile.isPending ? 'Salvando...' : 'Salvar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingUser(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveRole} disabled={updateUserRole.isPending}>
+                {updateUserRole.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deletingUser} onOpenChange={(open) => { if (!open) setDeletingUser(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja remover o usuário <strong>{deletingUser?.name}</strong>? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteUserProfile.isPending ? 'Removendo...' : 'Remover'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar Exclusão</DialogTitle>
+              <DialogDescription>
+                Tem certeza que deseja excluir o usuário <strong>{deletingUser?.name}</strong>? Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeletingUser(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleteUserProfile.isPending}
+              >
+                {deleteUserProfile.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                Excluir
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </TooltipProvider>
   );
 }

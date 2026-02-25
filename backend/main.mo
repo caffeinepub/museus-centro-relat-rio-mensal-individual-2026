@@ -1,8 +1,3 @@
-// <COMPONENT>
-/// This file imports "administrative" components:
-/// * Authorization
-/// * External blob storage
-
 import Array "mo:core/Array";
 import Float "mo:core/Float";
 import Int "mo:core/Int";
@@ -16,13 +11,14 @@ import Set "mo:core/Set";
 import Text "mo:core/Text";
 import Time "mo:core/Time";
 
+
 import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 import UserApproval "user-approval/approval";
 
-// <COMPONENT>
+// Use migration module for upgrades in the with clause
 
 actor {
   // ── Types ──────────────────────────────────────────────────────────────────
@@ -30,6 +26,7 @@ actor {
   public type AppUserRole = {
     #professional;
     #coordination;
+    #coordinator;
     #administration;
   };
 
@@ -230,6 +227,52 @@ actor {
     partnershipsInvolved : ?Text;
     status : ActivityStatus;
     cancellationReason : ?Text;
+    files : [Attachment];
+    linkedActivityId : ?ActivityId;
+  };
+
+  public type ActivityCreate = {
+    id : ActivityId;
+    reportId : ReportId;
+    date : Date;
+    museum : MuseumLocation;
+    actionType : Text;
+    activityName : Text;
+    dedicatedHours : ?Nat;
+    hoursNotApplicable : Bool;
+    classification : Classification;
+    goalNumber : ?Nat;
+    goalDescription : ?Text;
+    plannedIndicator : ?Text;
+    quantitativeGoal : ?Int;
+    achievedResult : ?Int;
+    contributionPercent : ?Float;
+    goalStatus : ?GoalStatus;
+    technicalJustification : ?Text;
+    totalAudience : Nat;
+    children : Nat;
+    youth : Nat;
+    adults : Nat;
+    elderly : Nat;
+    pcd : Nat;
+    accessibilityOptions : [AccessibilityOption];
+    hadPartnership : Bool;
+    partnerName : ?Text;
+    partnerType : ?Text;
+    objective : ?Text;
+    executedDescription : Text;
+    achievedResults : Text;
+    qualitativeAssessment : Text;
+    evidences : [EvidenceType];
+    attachmentsPrefix : Text;
+    productRealised : ProductRealised;
+    quantity : ?Quantity;
+    audienceRange : AudienceRange;
+    partnershipsInvolved : ?Text;
+    status : ActivityStatus;
+    cancellationReason : ?Text;
+    files : [Attachment];
+    linkedActivityId : ?ActivityId;
   };
 
   public type Museum = {
@@ -286,9 +329,28 @@ actor {
     approvalStatus : UserApproval.ApprovalStatus;
   };
 
+  public type ActivitySearchResult = {
+    id : ActivityId;
+    activityName : Text;
+  };
+
+  // New types for audience aggregation queries
+  public type DateRange = {
+    startMonth : Month;
+    startYear : Year;
+    endMonth : Month;
+    endYear : Year;
+  };
+
+  public type AudienceQueryType = {
+    #specificMonth : { month : Month; year : Year };
+    #cumulativeTotal;
+    #customRange : DateRange;
+  };
+
   // ── Constants ──────────────────────────────────────────────────────────────
 
-  /// The only name allowed to hold the #coordination role.
+  /// The only name allowed to hold the #coordination and #coordinator roles.
   let COORDINATION_RESERVED_NAME : Text = "Daniel Perini Santos";
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -310,16 +372,15 @@ actor {
   // ── Role helpers ───────────────────────────────────────────────────────────
 
   /// Enforce that the #coordination role may only be assigned to a profile
-  /// whose name is exactly COORDINATION_RESERVED_NAME.
-  /// If the requested role is #coordination and the name does not match,
-  /// the role is silently downgraded to #professional.
-  func enforceCoordinationRestriction(name : Text, requestedRole : AppUserRole) : AppUserRole {
+  /// whose name is exactly COORDINATION_RESERVED_NAME; otherwise, they are
+  /// silently downgraded to #coordinator.
+  func enforceCoordinatorRestrictions(name : Text, requestedRole : AppUserRole) : AppUserRole {
     switch (requestedRole) {
       case (#coordination) {
         if (name == COORDINATION_RESERVED_NAME) {
           #coordination;
         } else {
-          #professional;
+          #coordinator;
         };
       };
       case (other) { other };
@@ -391,21 +452,39 @@ actor {
     AccessControl.isAdmin(accessControlState, caller);
   };
 
-  func isCoordination(caller : Principal) : Bool {
+  /// #coordination role: full coordination powers.
+  /// Only valid when the profile name is COORDINATION_RESERVED_NAME.
+  /// All users with #coordination or #coordinator role can approve reports,
+  /// but only this "exclusive coordinator" may approve users and change roles.
+  func isCoordinator(caller : Principal) : Bool {
+    if (AccessControl.isAdmin(accessControlState, caller)) {
+      return true;
+    };
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       return false;
     };
     switch (userProfiles.get(caller)) {
       case (?profile) {
-        // Double-check: coordination role is only valid when the name matches
-        profile.appRole == #coordination and profile.name == COORDINATION_RESERVED_NAME
+        profile.appRole == #coordination or profile.appRole == #coordinator
       };
       case (null) { false };
     };
   };
 
-  func isCoordinationOrAdmin(caller : Principal) : Bool {
-    isAdminCaller(caller) or isCoordination(caller)
+  /// Returns true if "exclusive coordinator" or admin.
+  /// Refers only to COORDINATION_RESERVED_NAME.
+  func isCoordinationFullOrAdmin(caller : Principal) : Bool {
+    AccessControl.isAdmin(accessControlState, caller) or isExclusiveCoordinator(caller);
+  };
+
+  /// Returns true only if the caller has the role with the reserved name.
+  func isExclusiveCoordinator(caller : Principal) : Bool {
+    switch (userProfiles.get(caller)) {
+      case (?profile) {
+        profile.appRole == #coordination and profile.name == COORDINATION_RESERVED_NAME
+      };
+      case (null) { false };
+    };
   };
 
   func isAppAdministration(caller : Principal) : Bool {
@@ -421,17 +500,35 @@ actor {
 
   func canRead(caller : Principal, ownerPrincipal : Principal) : Bool {
     if (caller == ownerPrincipal) { return true };
-    isCoordinationOrAdmin(caller);
+    isCoordinator(caller);
   };
 
   func canWrite(caller : Principal, ownerPrincipal : Principal) : Bool {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       return false;
     };
-    caller == ownerPrincipal or isCoordination(caller);
+    caller == ownerPrincipal or isCoordinator(caller);
   };
 
-  // ── User profile endpoints (required by frontend) ──────────────────────────
+  /// Returns true if the caller is the owner of the report AND the report is
+  /// in a status that allows professional editing (draft or requiresAdjustment).
+  func professionalCanEditReport(caller : Principal, report : Report) : Bool {
+    caller == report.authorId and (report.status == #draft or report.status == #requiresAdjustment);
+  };
+
+  /// Returns true if the caller may edit/delete the given report:
+  /// - Coordinators and admins can always edit/delete any report.
+  /// - Professionals can only edit/delete their own reports in draft or
+  ///   requiresAdjustment status.
+  func canEditReport(caller : Principal, report : Report) : Bool {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      return false;
+    };
+    if (isCoordinator(caller)) { return true };
+    professionalCanEditReport(caller, report);
+  };
+
+  // ── User profile endpoints ───────────────────────────────────────────────
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
@@ -441,28 +538,28 @@ actor {
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller != user and not isCoordinationOrAdmin(caller)) {
+    if (caller != user and not isCoordinator(caller)) {
       Runtime.trap("Unauthorized: Can only view own profile");
     };
     userProfiles.get(user);
   };
 
   /// Save the caller's own profile.
-  /// The #coordination role is only permitted when the profile name is
-  /// exactly COORDINATION_RESERVED_NAME; otherwise it is downgraded to
-  /// #professional.
+  /// The #coordination role is only permitted when the
+  /// profile name is exactly COORDINATION_RESERVED_NAME; otherwise it is
+  /// downgraded to #coordinator.
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only registered users can save profile");
     };
-    let safeRole = enforceCoordinationRestriction(profile.name, profile.appRole);
+    let safeRole = enforceCoordinatorRestrictions(profile.name, profile.appRole);
     let safeProfile : UserProfile = { profile with appRole = safeRole };
     userProfiles.add(caller, safeProfile);
   };
 
   public query ({ caller }) func listAllUserProfiles() : async [FullUserProfile] {
-    if (not isCoordinationOrAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only Coordination/Admin can view all user profiles");
+    if (not isCoordinator(caller)) {
+      Runtime.trap("Unauthorized: Only Coordinator/Admin can view all user profiles");
     };
 
     let fullProfiles = userProfiles.toArray().map(func((p, profile)) {
@@ -488,17 +585,17 @@ actor {
   };
 
   /// Update any user's profile fields (name, role, museum).
-  /// Callable by coordinator or admin.
-  /// The #coordination role is only permitted when the target profile name is
-  /// exactly COORDINATION_RESERVED_NAME; otherwise it is downgraded to
-  /// #professional.
+  /// Callable by coordinator, or admin.
+  /// The #coordination role is only permitted when the
+  /// target profile name is exactly COORDINATION_RESERVED_NAME; otherwise it
+  /// is downgraded to #coordinator.
   public shared ({ caller }) func updateUserProfile(user : Principal, updatedProfile : UserProfile) : async () {
-    if (not isCoordinationOrAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only Coordination/Admin can update user profiles");
+    if (not isExclusiveCoordinator(caller) and not isAdminCaller(caller)) {
+      Runtime.trap("Unauthorized: Only Coordination (Coordenador Geral) or Admin can update user profiles");
     };
     switch (userProfiles.get(user)) {
       case (?_existing) {
-        let safeRole = enforceCoordinationRestriction(updatedProfile.name, updatedProfile.appRole);
+        let safeRole = enforceCoordinatorRestrictions(updatedProfile.name, updatedProfile.appRole);
         let safeProfile : UserProfile = { updatedProfile with appRole = safeRole };
         userProfiles.add(user, safeProfile);
       };
@@ -507,18 +604,18 @@ actor {
   };
 
   /// Update only the role of a user.
-  /// Callable by coordinator or admin.
-  /// The #coordination role is only permitted when the target user's registered
-  /// name is exactly COORDINATION_RESERVED_NAME; otherwise it is downgraded to
-  /// #professional.
+  /// Callable by coordinator, or admin.
+  /// The #coordination role is only permitted when the
+  /// target user's registered name is exactly COORDINATION_RESERVED_NAME;
+  /// otherwise it is downgraded to #coordinator.
   public shared ({ caller }) func updateUserRole(user : Principal, newRole : AppUserRole) : async () {
-    if (not isCoordinationOrAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only Coordination/Admin can update user roles");
+    if (not isExclusiveCoordinator(caller) and not isAdminCaller(caller)) {
+      Runtime.trap("Unauthorized: Only Coordination (Coordenador Geral) or Admin can update user roles");
     };
 
     switch (userProfiles.get(user)) {
       case (?profile) {
-        let safeRole = enforceCoordinationRestriction(profile.name, newRole);
+        let safeRole = enforceCoordinatorRestrictions(profile.name, newRole);
         let updatedProfile : UserProfile = { profile with appRole = safeRole };
         userProfiles.add(user, updatedProfile);
       };
@@ -527,23 +624,22 @@ actor {
   };
 
   /// Delete any user profile.
-  /// Callable by coordinator or admin.
+  /// Callable by exclusive coordinator, or admin.
   public shared ({ caller }) func deleteUserProfile(user : Principal) : async () {
-    if (not isCoordinationOrAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only Coordination/Admin can delete users");
+    if (not isExclusiveCoordinator(caller) and not isAdminCaller(caller)) {
+      Runtime.trap("Unauthorized: Only Coordination (Coordenador Geral) or Admin can delete users");
     };
     userProfiles.remove(user);
   };
 
   // ── User Approval Endpoints ────────────────────────────────────────────────
 
-  /// Returns true for admins, coordinators (Daniel Perini Santos), and
-  /// explicitly approved users — no approval gate for the coordinator.
+  /// Returns true for admins, coordinators, and explicitly approved users.
   public query ({ caller }) func isCallerApproved() : async Bool {
     if (AccessControl.hasPermission(accessControlState, caller, #admin)) {
       return true;
     };
-    if (isCoordination(caller)) {
+    if (isCoordinator(caller)) {
       return true;
     };
     UserApproval.isApproved(approvalState, caller);
@@ -553,6 +649,8 @@ actor {
     UserApproval.requestApproval(approvalState, caller);
   };
 
+  /// Set approval status for a user.
+  /// Only admins can call this low-level function.
   public shared ({ caller }) func setApproval(user : Principal, status : UserApproval.ApprovalStatus) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can perform this action");
@@ -567,11 +665,20 @@ actor {
     UserApproval.listApprovals(approvalState);
   };
 
+  /// Approve a user.
+  /// Only the exclusive #coordination role or admin may approve users.
   public shared ({ caller }) func approveUser(user : Principal) : async () {
-    if (not (isCoordinationOrAdmin(caller))) {
-      Runtime.trap("Unauthorized: Only Coordination/Admin can perform this action");
+    if (not isExclusiveCoordinator(caller) and not isAdminCaller(caller)) {
+      Runtime.trap("Unauthorized: Only Coordination (Coordenador Geral) or Admin can approve users");
     };
     UserApproval.setApproval(approvalState, user, #approved);
+  };
+
+  public shared ({ caller }) func rejectUser(user : Principal) : async () {
+    if (not isExclusiveCoordinator(caller) and not isAdminCaller(caller)) {
+      Runtime.trap("Unauthorized: Only Coordination (Coordenador Geral) or Admin can reject users");
+    };
+    UserApproval.setApproval(approvalState, user, #rejected);
   };
 
   // ── Report endpoints ───────────────────────────────────────────────────────
@@ -608,6 +715,10 @@ actor {
     reportId;
   };
 
+  /// Update a report.
+  /// Coordinators and admins can edit any report.
+  /// Professionals can only edit their own reports when in draft or
+  /// requiresAdjustment status.
   public shared ({ caller }) func updateReport(reportId : ReportId, updated : Report) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only registered users can update reports");
@@ -616,8 +727,8 @@ actor {
       case (?r) { r };
       case (null) { Runtime.trap("Report not found") };
     };
-    if (not canWrite(caller, existing.authorId)) {
-      Runtime.trap("Unauthorized: Can only edit own reports");
+    if (not canEditReport(caller, existing)) {
+      Runtime.trap("Unauthorized: Professionals can only edit own reports in draft or returned status");
     };
     validateReport(updated);
     let updatedReport : Report = {
@@ -631,6 +742,31 @@ actor {
       coordinatorSignature = existing.coordinatorSignature;
     };
     reports.add(reportId, updatedReport);
+  };
+
+  /// Delete a report.
+  /// Coordinators and admins can delete any report.
+  /// Professionals can only delete their own reports in draft or
+  /// requiresAdjustment status.
+  public shared ({ caller }) func deleteReport(reportId : ReportId) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can delete reports");
+    };
+    let existing = switch (reports.get(reportId)) {
+      case (?r) { r };
+      case (null) { Runtime.trap("Report not found") };
+    };
+    if (not canEditReport(caller, existing)) {
+      Runtime.trap("Unauthorized: Professionals can only delete own reports in draft or returned status");
+    };
+    // Also remove all activities belonging to this report
+    let reportActivities = activities.values().toArray().filter(
+      func(a : Activity) : Bool { a.reportId == reportId }
+    );
+    for (a in reportActivities.vals()) {
+      activities.remove(a.id);
+    };
+    reports.remove(reportId);
   };
 
   public query ({ caller }) func getReport(reportId : ReportId) : async Report {
@@ -661,13 +797,16 @@ actor {
   };
 
   public query ({ caller }) func getAllReports() : async [Report] {
-    if (not isCoordinationOrAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only Coordination/Admin can view all reports");
+    if (not isCoordinator(caller)) {
+      Runtime.trap("Unauthorized: Only Coordinator/Admin can view all reports");
     };
     reports.values().toArray().sort(Report.compareByMonthAndStatus);
   };
 
   public shared ({ caller }) func submitReport(reportId : ReportId) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can submit reports");
+    };
     let existing = switch (reports.get(reportId)) {
       case (?r) { r };
       case (null) { Runtime.trap("Report not found") };
@@ -687,18 +826,27 @@ actor {
 
   // ── Coordination-only Review Workflow ──────────────────────────────────────
 
+  /// Review (change status of) a report.
+  /// The #coordination role (Daniel Perini Santos) is explicitly required for
+  /// approving users and coordinator-level users. All other coordinators may
+  /// still move reports to #underReview or #requiresAdjustment.
   public shared ({ caller }) func reviewReport(
     reportId : ReportId,
     newStatus : Status,
     comments : ?Text,
     signature : ?Storage.ExternalBlob,
   ) : async () {
-    if (not isCoordinationOrAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only Coordination/Admin can review reports");
+    if (not isCoordinator(caller)) {
+      Runtime.trap("Unauthorized: Only Coordinator/Admin can review reports");
     };
 
-    if (newStatus != #underReview and newStatus != #approved) {
-      Runtime.trap("Invalid status transition. Only 'UnderReview' or 'Approved' allowed.");
+    if (newStatus != #underReview and newStatus != #approved and newStatus != #requiresAdjustment and newStatus != #analysis) {
+      Runtime.trap("Invalid status transition for review.");
+    };
+
+    // The #coordination role (with correct name) is required for approval.
+    if (newStatus == #approved and not isCoordinationFullOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only Coordination (Coordenador Geral) or Admin can approve reports. Regular coordinators cannot approve.");
     };
 
     let existing = switch (reports.get(reportId)) {
@@ -718,6 +866,9 @@ actor {
   };
 
   public shared ({ caller }) func uploadSignature(reportId : ReportId, signatureBase64 : Text) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can upload signatures");
+    };
     let existing = switch (reports.get(reportId)) {
       case (?r) { r };
       case (null) { Runtime.trap("Report not found") };
@@ -737,8 +888,8 @@ actor {
     consolidatedGoals : Text,
     institutionalObservations : Text,
   ) : async () {
-    if (not isCoordinationOrAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only Coordination/Admin can update coordination fields");
+    if (not isCoordinator(caller)) {
+      Runtime.trap("Unauthorized: Only Coordinator/Admin can update coordination fields");
     };
     let existing = switch (reports.get(reportId)) {
       case (?r) { r };
@@ -755,33 +906,74 @@ actor {
 
   // ── Activity endpoints ─────────────────────────────────────────────────────
 
-  public shared ({ caller }) func createActivity(activity : Activity) : async ActivityId {
+  public shared ({ caller }) func createActivity(activity : ActivityCreate) : async ActivityId {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only registered users can create activities");
     };
+
     let reportAuthor = getReportAuthorId(activity.reportId);
     if (not canWrite(caller, reportAuthor)) {
       Runtime.trap("Unauthorized: Can only create activities for own reports");
     };
+
     validateActivity(activity);
+
     let activityId = generateId();
-    let newActivity : Activity = { activity with id = activityId };
+    let newActivity : Activity = {
+      activity with
+      id = activityId;
+      files = activity.files;
+    };
+
     activities.add(activityId, newActivity);
+
     activityId;
   };
 
+  /// Update an activity.
+  /// Coordinators and admins can edit any activity.
+  /// Professionals can only edit activities belonging to their own reports
+  /// when those reports are in draft or requiresAdjustment status.
   public shared ({ caller }) func updateActivity(activityId : ActivityId, updated : Activity) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can update activities");
+    };
     let existing = switch (activities.get(activityId)) {
       case (?a) { a };
       case (null) { Runtime.trap("Activity not found") };
     };
-    let reportAuthor = getReportAuthorId(existing.reportId);
-    if (not canWrite(caller, reportAuthor)) {
-      Runtime.trap("Unauthorized: Can only edit activities in own reports");
+    let report = switch (reports.get(existing.reportId)) {
+      case (?r) { r };
+      case (null) { Runtime.trap("Report not found") };
+    };
+    if (not canEditReport(caller, report)) {
+      Runtime.trap("Unauthorized: Professionals can only edit activities in own reports in draft or returned status");
     };
     validateActivity(updated);
     let updatedActivity : Activity = { updated with id = activityId };
     activities.add(activityId, updatedActivity);
+  };
+
+  /// Delete an activity.
+  /// Coordinators and admins can delete any activity.
+  /// Professionals can only delete activities belonging to their own reports
+  /// when those reports are in draft or requiresAdjustment status.
+  public shared ({ caller }) func deleteActivity(activityId : ActivityId) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can delete activities");
+    };
+    let existing = switch (activities.get(activityId)) {
+      case (?a) { a };
+      case (null) { Runtime.trap("Activity not found") };
+    };
+    let report = switch (reports.get(existing.reportId)) {
+      case (?r) { r };
+      case (null) { Runtime.trap("Report not found") };
+    };
+    if (not canEditReport(caller, report)) {
+      Runtime.trap("Unauthorized: Professionals can only delete activities in own reports in draft or returned status");
+    };
+    activities.remove(activityId);
   };
 
   public query ({ caller }) func getActivity(activityId : ActivityId) : async Activity {
@@ -799,6 +991,13 @@ actor {
     activity;
   };
 
+  public query ({ caller }) func listAllActivities() : async [Activity] {
+    if (not isCoordinator(caller)) {
+      return [];
+    };
+    activities.values().toArray();
+  };
+
   public query ({ caller }) func getActivitiesForReport(reportId : ReportId) : async [Activity] {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only registered users can view activities");
@@ -813,13 +1012,24 @@ actor {
   };
 
   public query ({ caller }) func getAllActivities() : async [Activity] {
-    if (not isCoordinationOrAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only Coordination/Admin can view all activities");
+    if (not isCoordinator(caller)) {
+      Runtime.trap("Unauthorized: Only Coordinator/Admin can view all activities");
     };
     activities.values().toArray();
   };
 
+  public query ({ caller }) func searchActivitiesByName(searchTerm : Text) : async [ActivitySearchResult] {
+    let lowercaseSearchTerm = searchTerm.toLower();
+    let searchResults = activities.toArray().filter(
+      func((id, activity)) {
+        activity.activityName.toLower().contains(#text lowercaseSearchTerm)
+      }
+    );
+    searchResults.map(func((id, activity)) { { id; activityName = activity.activityName } });
+  };
+
   // ── Goals Management ─────────────────────────────────────────────
+
   public shared ({ caller }) func addGoal(name : Text, description : ?Text) : async () {
     if (not isAppAdministration(caller)) {
       Runtime.trap("Unauthorized: Only Administration can add goals");
@@ -855,8 +1065,8 @@ actor {
   // ── Coordination Dashboard endpoint with filters ───────────────────────────
 
   public query ({ caller }) func getCoordinationDashboardWithFilter(filter : DashboardFilter) : async CoordinationDashboard {
-    if (not isCoordinationOrAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only Coordination/Admin can view dashboard indicators");
+    if (not isCoordinator(caller)) {
+      Runtime.trap("Unauthorized: Only Coordinator/Admin can view dashboard indicators");
     };
 
     let filteredReports = reports.values().toArray().filter(
@@ -894,7 +1104,116 @@ actor {
     };
   };
 
+  // ── New General Audience Aggregation Endpoint ─────────────────────────────
+
+  public query ({ caller }) func getTotalGeneralAudience(queryType : AudienceQueryType) : async Nat {
+    if (not isCoordinator(caller)) {
+      Runtime.trap("Unauthorized: Only Coordinator/Admin can view audience statistics");
+    };
+
+    let approvedReportIds = Set.empty<ReportId>();
+
+    for (report in reports.values()) {
+      if (report.status == #approved) {
+        approvedReportIds.add(report.id);
+      };
+    };
+
+    let filteredActivities = activities.values().toArray().filter(
+      func(a) { approvedReportIds.contains(a.reportId) }
+    );
+
+    switch (queryType) {
+      case (#specificMonth({ month; year })) {
+        filteredActivities.filter(
+          func(a) { activityMatchesMonthYear(a, month, year) }
+        ).foldLeft(0, func(acc, a) { acc + a.totalAudience });
+      };
+      case (#customRange(range)) {
+        filteredActivities.filter(
+          func(a) { activityInRangeInclusive(a, range) }
+        ).foldLeft(0, func(acc, a) { acc + a.totalAudience });
+      };
+      case (#cumulativeTotal) {
+        filteredActivities.foldLeft(0, func(acc, a) { acc + a.totalAudience });
+      };
+    };
+  };
+
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  func activityMatchesMonthYear(activity : Activity, month : Month, year : Year) : Bool {
+    let activityYear = extractYearFromTime(activity.date);
+    let activityMonth = extractMonthFromTime(activity.date);
+    activityYear == year and activityMonth == month;
+  };
+
+  func activityInRangeInclusive(activity : Activity, range : DateRange) : Bool {
+    let activityYear = extractYearFromTime(activity.date);
+    let activityMonth = extractMonthFromTime(activity.date);
+
+    let afterStartYear = activityYear > range.startYear or (activityYear == range.startYear and monthToNat(activityMonth) >= monthToNat(range.startMonth));
+    let beforeEndYear = activityYear < range.endYear or (activityYear == range.endYear and monthToNat(activityMonth) <= monthToNat(range.endMonth));
+
+    afterStartYear and beforeEndYear;
+  };
+
+  func monthToNat(month : Month) : Nat {
+    switch (month) {
+      case (#february) { 1 };
+      case (#march) { 2 };
+      case (#april) { 3 };
+      case (#may) { 4 };
+      case (#june) { 5 };
+      case (#july) { 6 };
+      case (#august) { 7 };
+      case (#september) { 8 };
+      case (#october) { 9 };
+      case (#november) { 10 };
+    };
+  };
+
+  func extractYearFromTime(t : Time.Time) : Year {
+    let seconds : Int = t / 1_000_000_000;
+    let days : Int = seconds / 86400;
+    let z : Int = days + 719468;
+    let era : Int = (if (z >= 0) { z } else { z - 146096 }) / 146097;
+    let doe : Int = z - era * 146097;
+    let yoe : Int = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y : Int = yoe + era * 400;
+    let doy : Int = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp : Int = (5 * doy + 2) / 153;
+    let m : Int = mp + (if (mp < 10) { 3 } else { -9 });
+    let year : Int = y + (if (m <= 2) { 1 } else { 0 });
+    year.toNat();
+  };
+
+  func extractMonthFromTime(t : Time.Time) : Month {
+    let seconds : Int = t / 1_000_000_000;
+    let days : Int = seconds / 86400;
+    let z : Int = days + 719468;
+    let era : Int = (if (z >= 0) { z } else { z - 146096 }) / 146097;
+    let doe : Int = z - era * 146097;
+    let yoe : Int = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let _y = yoe + era * 400;
+    let doy : Int = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp : Int = (5 * doy + 2) / 153;
+    let m : Int = mp + (if (mp < 10) { 3 } else { -9 });
+
+    switch (m) {
+      case (2) { #february };
+      case (3) { #march };
+      case (4) { #april };
+      case (5) { #may };
+      case (6) { #june };
+      case (7) { #july };
+      case (8) { #august };
+      case (9) { #september };
+      case (10) { #october };
+      case (11) { #november };
+      case (_) { #november };
+    };
+  };
 
   func generateId() : Text {
     let ts = Time.now();
@@ -903,7 +1222,7 @@ actor {
 
   func validateReport(_report : Report) { () };
 
-  func validateActivity(activity : Activity) {
+  func validateActivity(activity : ActivityCreate) {
     validateAudience(activity);
 
     if ((activity.dedicatedHours == null) == not activity.hoursNotApplicable) {
@@ -928,7 +1247,7 @@ actor {
     };
   };
 
-  func validateAudience(activity : Activity) {
+  func validateAudience(activity : ActivityCreate) {
     let totalSubGroups =
       activity.children +
       activity.youth +
@@ -1210,4 +1529,3 @@ actor {
     };
   };
 };
-

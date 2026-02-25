@@ -1,50 +1,28 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-25T12:40:25.032Z",
-  "summary": "The diff addresses REQ-4 (frontend read-only logic for ReportFormPage) and partially REQ-3 (canEditActivities for coordinators). However, REQ-1 and REQ-2 (backend authorization for createReport and createActivity) are not evidenced in the diff, and REQ-3 (Sidebar navigation items for coordinator) lacks clear evidence of being fully implemented.",
+  "generatedAt": "2026-02-25T14:37:36.714Z",
+  "summary": "The diff implements both REQ-1 (backend query function with three filter modes) and REQ-2 (frontend PublicoGeralCard with period selector, loading/error states, and KPICard-style design). Most acceptance criteria are satisfied. However, REQ-2 requires use of the existing KPICard component for the new metric display, but the diff shows PublicoGeralCard implements its own card layout (a div with custom styling) rather than wrapping or using the KPICard component.",
   "missing_requirements": [
     {
-      "id": "REQ-1",
-      "requirement": "Update the backend authorization logic so that users with the 'coordination' (coordinator) role are permitted to call the createReport function.",
-      "reason": "The backend/main.mo diff is truncated and shows only type definitions and imports. No evidence of authorization logic changes permitting the coordinator role to call createReport is visible in the diff.",
-      "evidence": [
-        "backend/main.mo"
-      ]
-    },
-    {
       "id": "REQ-2",
-      "requirement": "Update the backend authorization logic so that users with the 'coordination' (coordinator) role are permitted to call the createActivity function.",
-      "reason": "The backend/main.mo diff is truncated and shows only type definitions and imports. No evidence of authorization logic changes permitting the coordinator role to call createActivity is visible in the diff.",
+      "requirement": "The KPI card uses the existing KPICard component and visual design system for consistency.",
+      "reason": "PublicoGeralCard.tsx builds its own card layout using a plain div with custom Tailwind classes instead of importing and using the existing KPICard component. The constraint also explicitly states 'Reuse the existing KPICard component for the new metric display.'",
       "evidence": [
-        "backend/main.mo"
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "requirement": "Update the frontend Sidebar navigation so that the coordinator role sees menu items for creating reports and inserting activities.",
-      "reason": "The Sidebar.tsx file summary only mentions changes related to hiding nav items for unapproved users (isApproved prop). There is no evidence that coordinator-specific nav items for creating reports or activities were added or unlocked.",
-      "evidence": [
-        "frontend/src/components/Sidebar.tsx",
-        "frontend-file-summaries.txt"
+        "frontend/src/components/dashboard/PublicoGeralCard.tsx"
       ]
     }
   ],
-  "hallucinated_features": [
-    {
-      "description": "Sidebar hides all navigation items (except logout) for users who are not yet approved.",
-      "reason": "The Sidebar change (adding isApproved prop to hide nav for unapproved users) is not part of any requirement in the build request.",
-      "evidence": [
-        "frontend/src/components/Sidebar.tsx",
-        "frontend-file-summaries.txt"
-      ]
-    }
-  ],
-  "confidence": 0.72,
+  "hallucinated_features": [],
+  "confidence": 0.82,
   "changed_files": [
     "backend/main.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/pages/ReportFormPage.tsx",
+    "frontend/src/components/dashboard/PublicoGeralCard.tsx",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/ActivityFormPage.tsx",
+    "frontend/src/pages/DashboardPage.tsx",
+    "frontend/src/utils/labels.ts",
     "project_state.json"
   ]
 }

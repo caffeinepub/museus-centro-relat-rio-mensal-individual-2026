@@ -235,3 +235,36 @@ export const MONTHS: Month[] = [
   Month.october,
   Month.november,
 ];
+
+/** Returns an array of { value, label } for all Month enum values */
+export function getMonthOptions(): { value: Month; label: string }[] {
+  return MONTHS.map((m) => ({ value: m, label: monthLabel(m) }));
+}
+
+/** Formats a bigint audience number with locale-aware thousand separators */
+export function formatAudienceNumber(audience: bigint): string {
+  return Number(audience).toLocaleString('pt-BR');
+}
+
+/** Returns the current calendar month as a Month enum value, or null if outside the valid range */
+export function getCurrentMonth(): Month | null {
+  const jsMonth = new Date().getMonth() + 1; // 1-12
+  const monthMap: Record<number, Month> = {
+    2: Month.february,
+    3: Month.march,
+    4: Month.april,
+    5: Month.may,
+    6: Month.june,
+    7: Month.july,
+    8: Month.august,
+    9: Month.september,
+    10: Month.october,
+    11: Month.november,
+  };
+  return monthMap[jsMonth] ?? null;
+}
+
+/** Returns the current calendar year */
+export function getCurrentYear(): number {
+  return new Date().getFullYear();
+}

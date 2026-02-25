@@ -1,150 +1,204 @@
 import React, { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Plus, FileText, Search, Calendar, Building2 } from 'lucide-react';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useGetCallerUserProfile, useReportsForUser, useAllReports } from '../hooks/useQueries';
-import { AppUserRole, Status } from '../backend';
-import type { Report } from '../backend';
-import { statusLabel, getMonthLabel, getMuseumLabel, MUSEUM_LOCATIONS, MONTHS } from '../utils/labels';
-import { Badge } from '@/components/ui/badge';
+import {
+  useReportsForUser,
+  useAllReports,
+  useDeleteReport,
+  useGetCallerUserProfile,
+  useAllActivities,
+  useIsCoordinadorGeral,
+} from '../hooks/useQueries';
+import { AppUserRole, type Report } from '../backend';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Plus,
+  FileText,
+  Trash2,
+  Edit,
+  Eye,
+  Loader2,
+  Search,
+  Download,
+  Filter,
+} from 'lucide-react';
+import { statusLabel, getMuseumLabel, MONTHS, getMonthLabel } from '../utils/labels';
+import { generateConsolidatedExcel } from '../utils/excelGenerator';
+import type { Principal } from '@dfinity/principal';
 
-function getStatusColor(status: Status): string {
-  switch (status) {
-    case Status.approved: return 'bg-success/10 text-success border-success/20';
-    case Status.submitted: return 'bg-primary/10 text-primary border-primary/20';
-    case Status.underReview: return 'bg-warning/10 text-warning border-warning/20';
-    case Status.requiresAdjustment: return 'bg-destructive/10 text-destructive border-destructive/20';
-    case Status.draft: return 'bg-muted text-muted-foreground border-border';
-    case Status.analysis: return 'bg-secondary/10 text-secondary-foreground border-secondary/20';
-    default: return 'bg-muted text-muted-foreground border-border';
-  }
-}
+const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  draft: 'secondary',
+  submitted: 'default',
+  underReview: 'outline',
+  approved: 'default',
+  analysis: 'outline',
+  requiresAdjustment: 'destructive',
+};
 
 export default function ReportsListPage() {
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
   const { data: userProfile } = useGetCallerUserProfile();
+  const isCoordinadorGeral = useIsCoordinadorGeral(userProfile);
 
-  const isCoordOrAdmin =
+  const isCoordinator =
     userProfile?.appRole === AppUserRole.coordination ||
+    userProfile?.appRole === AppUserRole.coordinator ||
     userProfile?.appRole === AppUserRole.administration;
 
-  const { data: userReports, isLoading: userReportsLoading } = useReportsForUser(
-    !isCoordOrAdmin ? identity?.getPrincipal() : undefined
+  const { data: myReports, isLoading: myLoading } = useReportsForUser(
+    !isCoordinator ? (identity?.getPrincipal() as unknown as Principal) : undefined
   );
-  const { data: allReports, isLoading: allReportsLoading } = useAllReports();
-
-  const reports = isCoordOrAdmin ? (allReports ?? []) : (userReports ?? []);
-  const isLoading = isCoordOrAdmin ? allReportsLoading : userReportsLoading;
+  const { data: allReports, isLoading: allLoading } = useAllReports();
+  const { data: allActivities } = useAllActivities();
+  const deleteReport = useDeleteReport();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
-  const [museumFilter, setMuseumFilter] = useState<string>('all');
+  const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
-  const filteredReports = reports.filter((report) => {
+  const reports = isCoordinator ? (allReports ?? []) : (myReports ?? []);
+  const isLoading = isCoordinator ? allLoading : myLoading;
+
+  const filteredReports = reports.filter((r) => {
     const matchesSearch =
       !searchTerm ||
-      report.professionalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.protocolNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.executiveSummary.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus = statusFilter === 'all' || report.status === statusFilter;
-    const matchesMonth = monthFilter === 'all' || report.referenceMonth === monthFilter;
-    const matchesMuseum = museumFilter === 'all' || report.mainMuseum === museumFilter;
-
-    return matchesSearch && matchesStatus && matchesMonth && matchesMuseum;
+      r.professionalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.protocolNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.executiveSummary.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+    const matchesMonth = monthFilter === 'all' || r.referenceMonth === monthFilter;
+    return matchesSearch && matchesStatus && matchesMonth;
   });
 
-  const stats = {
-    total: reports.length,
-    draft: reports.filter((r) => r.status === Status.draft).length,
-    submitted: reports.filter((r) => r.status === Status.submitted).length,
-    approved: reports.filter((r) => r.status === Status.approved).length,
+  const handleDelete = async () => {
+    if (!reportToDelete) return;
+    try {
+      await deleteReport.mutateAsync(reportToDelete.id);
+      setReportToDelete(null);
+    } catch {
+      // error handled by mutation
+    }
+  };
+
+  const handleExportXLSX = async () => {
+    if (!allReports || !allActivities) return;
+    setIsExporting(true);
+    try {
+      generateConsolidatedExcel(allReports, allActivities);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const canEdit = (report: Report): boolean => {
+    if (isCoordinator) return true;
+    return (
+      report.authorId.toString() === identity?.getPrincipal().toString() &&
+      (report.status === 'draft' || report.status === 'requiresAdjustment')
+    );
+  };
+
+  const canDelete = (report: Report): boolean => {
+    if (isCoordinator) return true;
+    return (
+      report.authorId.toString() === identity?.getPrincipal().toString() &&
+      (report.status === 'draft' || report.status === 'requiresAdjustment')
+    );
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Relatórios</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {isCoordOrAdmin ? 'Todos os relatórios do sistema' : 'Seus relatórios mensais'}
+          <p className="text-sm text-muted-foreground mt-1">
+            {isCoordinator
+              ? `${filteredReports.length} relatório(s) no sistema`
+              : `${filteredReports.length} relatório(s) seus`}
           </p>
         </div>
-        <Button onClick={() => navigate({ to: '/reports/new' })} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Novo Relatório
-        </Button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Total', value: stats.total, color: 'text-foreground' },
-          { label: 'Rascunhos', value: stats.draft, color: 'text-muted-foreground' },
-          { label: 'Enviados', value: stats.submitted, color: 'text-primary' },
-          { label: 'Aprovados', value: stats.approved, color: 'text-success' },
-        ].map((stat) => (
-          <Card key={stat.label}>
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
-              <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-            </CardContent>
-          </Card>
-        ))}
+        <div className="flex items-center gap-2">
+          {isCoordinator && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportXLSX}
+              disabled={isExporting || !allReports?.length}
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Exportar XLSX
+            </Button>
+          )}
+          <Button onClick={() => navigate({ to: '/reports/new' })}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Relatório
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <div className="relative flex-1 min-w-48">
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, protocolo..."
+            placeholder="Pesquisar por profissional, protocolo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9"
           />
         </div>
-
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full sm:w-44">
+            <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os status</SelectItem>
-            {Object.values(Status).map((s) => (
-              <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>
-            ))}
+            <SelectItem value="draft">Rascunho</SelectItem>
+            <SelectItem value="submitted">Submetido</SelectItem>
+            <SelectItem value="underReview">Em Revisão</SelectItem>
+            <SelectItem value="approved">Aprovado</SelectItem>
+            <SelectItem value="analysis">Em Análise</SelectItem>
+            <SelectItem value="requiresAdjustment">Requer Ajuste</SelectItem>
           </SelectContent>
         </Select>
-
         <Select value={monthFilter} onValueChange={setMonthFilter}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Mês" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os meses</SelectItem>
             {MONTHS.map((m) => (
-              <SelectItem key={m} value={m}>{getMonthLabel(m)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={museumFilter} onValueChange={setMuseumFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Equipe/Museu" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as equipes</SelectItem>
-            {MUSEUM_LOCATIONS.map((m) => (
-              <SelectItem key={m} value={m}>{getMuseumLabel(m)}</SelectItem>
+              <SelectItem key={m} value={m}>
+                {getMonthLabel(m)}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -152,22 +206,23 @@ export default function ReportsListPage() {
 
       {/* Reports List */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-lg" />
-          ))}
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       ) : filteredReports.length === 0 ? (
-        <div className="text-center py-16 bg-card border border-border rounded-xl">
-          <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">Nenhum relatório encontrado</h3>
-          <p className="text-muted-foreground mb-4">
-            {reports.length === 0
-              ? 'Crie seu primeiro relatório clicando no botão acima.'
-              : 'Nenhum relatório corresponde aos filtros selecionados.'}
+        <div className="text-center py-16 text-muted-foreground">
+          <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">Nenhum relatório encontrado</p>
+          <p className="text-sm mt-1">
+            {searchTerm || statusFilter !== 'all' || monthFilter !== 'all'
+              ? 'Tente ajustar os filtros'
+              : 'Crie seu primeiro relatório'}
           </p>
-          {reports.length === 0 && (
-            <Button onClick={() => navigate({ to: '/reports/new' })}>
+          {!searchTerm && statusFilter === 'all' && monthFilter === 'all' && (
+            <Button
+              className="mt-4"
+              onClick={() => navigate({ to: '/reports/new' })}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Criar Relatório
             </Button>
@@ -176,53 +231,96 @@ export default function ReportsListPage() {
       ) : (
         <div className="space-y-3">
           {filteredReports.map((report) => (
-            <ReportCard
+            <div
               key={report.id}
-              report={report}
-              onClick={() => navigate({ to: '/reports/$reportId', params: { reportId: report.id } })}
-            />
+              className="group flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:shadow-sm hover:border-primary/30 transition-all"
+            >
+              <div className="flex items-start gap-4 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-foreground text-sm">
+                      {report.professionalName}
+                    </p>
+                    <Badge
+                      variant={STATUS_VARIANTS[report.status] ?? 'secondary'}
+                      className="text-xs"
+                    >
+                      {statusLabel(report.status)}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {getMonthLabel(report.referenceMonth)} {report.year.toString()} ·{' '}
+                    {getMuseumLabel(report.mainMuseum)} · {report.protocolNumber}
+                  </p>
+                  {report.executiveSummary && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                      {report.executiveSummary}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 ml-3">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="w-8 h-8"
+                  onClick={() => navigate({ to: `/reports/${report.id}` })}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </Button>
+                {canEdit(report) && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="w-8 h-8"
+                    onClick={() => navigate({ to: `/reports/${report.id}/edit` })}
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+                {canDelete(report) && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="w-8 h-8 text-destructive hover:text-destructive"
+                    onClick={() => setReportToDelete(report)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}
-    </div>
-  );
-}
 
-function ReportCard({ report, onClick }: { report: Report; onClick: () => void }) {
-  return (
-    <div
-      onClick={onClick}
-      className="bg-card border border-border rounded-xl p-4 hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs text-muted-foreground font-mono">{report.protocolNumber}</span>
-            <span
-              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(report.status)}`}
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!reportToDelete} onOpenChange={(open) => !open && setReportToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Relatório</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o relatório de{' '}
+              <strong>{reportToDelete?.professionalName}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {statusLabel(report.status)}
-            </span>
-          </div>
-          <h3 className="font-semibold text-foreground truncate">{report.professionalName}</h3>
-          <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" />
-              {getMonthLabel(report.referenceMonth)} / {report.year.toString()}
-            </span>
-            <span className="flex items-center gap-1">
-              <Building2 className="w-3.5 h-3.5" />
-              {getMuseumLabel(report.mainMuseum)}
-            </span>
-          </div>
-          {report.executiveSummary && (
-            <p className="text-sm text-muted-foreground mt-2 line-clamp-1">{report.executiveSummary}</p>
-          )}
-        </div>
-        <div className="shrink-0">
-          <FileText className="w-5 h-5 text-muted-foreground" />
-        </div>
-      </div>
+              {deleteReport.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

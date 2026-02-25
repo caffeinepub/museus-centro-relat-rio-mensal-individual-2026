@@ -25,6 +25,7 @@ export const UserRole = IDL.Variant({
   'guest' : IDL.Null,
 });
 export const ActivityId = IDL.Text;
+export const Attachment = IDL.Vec(IDL.Nat8);
 export const ActivityStatus = IDL.Variant({
   'notStarted' : IDL.Null,
   'cancelled' : IDL.Null,
@@ -102,9 +103,10 @@ export const Classification = IDL.Variant({
   'extra' : IDL.Null,
   'routine' : IDL.Null,
 });
-export const Activity = IDL.Record({
+export const ActivityCreate = IDL.Record({
   'id' : ActivityId,
   'pcd' : IDL.Nat,
+  'files' : IDL.Vec(Attachment),
   'status' : ActivityStatus,
   'evidences' : IDL.Vec(EvidenceType),
   'activityName' : IDL.Text,
@@ -126,6 +128,7 @@ export const Activity = IDL.Record({
   'children' : IDL.Nat,
   'dedicatedHours' : IDL.Opt(IDL.Nat),
   'achievedResult' : IDL.Opt(IDL.Int),
+  'linkedActivityId' : IDL.Opt(ActivityId),
   'totalAudience' : IDL.Nat,
   'productRealised' : ProductRealised,
   'partnershipsInvolved' : IDL.Opt(IDL.Text),
@@ -195,10 +198,54 @@ export const Report = IDL.Record({
   'consolidatedGoals' : IDL.Opt(IDL.Text),
   'sendDate' : IDL.Opt(Time),
 });
+export const Activity = IDL.Record({
+  'id' : ActivityId,
+  'pcd' : IDL.Nat,
+  'files' : IDL.Vec(Attachment),
+  'status' : ActivityStatus,
+  'evidences' : IDL.Vec(EvidenceType),
+  'activityName' : IDL.Text,
+  'executedDescription' : IDL.Text,
+  'plannedIndicator' : IDL.Opt(IDL.Text),
+  'hoursNotApplicable' : IDL.Bool,
+  'partnerName' : IDL.Opt(IDL.Text),
+  'partnerType' : IDL.Opt(IDL.Text),
+  'cancellationReason' : IDL.Opt(IDL.Text),
+  'museum' : MuseumLocation,
+  'date' : Date,
+  'objective' : IDL.Opt(IDL.Text),
+  'goalStatus' : IDL.Opt(GoalStatus),
+  'achievedResults' : IDL.Text,
+  'actionType' : IDL.Text,
+  'hadPartnership' : IDL.Bool,
+  'audienceRange' : AudienceRange,
+  'elderly' : IDL.Nat,
+  'children' : IDL.Nat,
+  'dedicatedHours' : IDL.Opt(IDL.Nat),
+  'achievedResult' : IDL.Opt(IDL.Int),
+  'linkedActivityId' : IDL.Opt(ActivityId),
+  'totalAudience' : IDL.Nat,
+  'productRealised' : ProductRealised,
+  'partnershipsInvolved' : IDL.Opt(IDL.Text),
+  'adults' : IDL.Nat,
+  'quantity' : IDL.Opt(Quantity),
+  'attachmentsPrefix' : IDL.Text,
+  'technicalJustification' : IDL.Opt(IDL.Text),
+  'goalDescription' : IDL.Opt(IDL.Text),
+  'reportId' : ReportId,
+  'goalNumber' : IDL.Opt(IDL.Nat),
+  'qualitativeAssessment' : IDL.Text,
+  'quantitativeGoal' : IDL.Opt(IDL.Int),
+  'youth' : IDL.Nat,
+  'contributionPercent' : IDL.Opt(IDL.Float64),
+  'accessibilityOptions' : IDL.Vec(AccessibilityOption),
+  'classification' : Classification,
+});
 export const AppUserRole = IDL.Variant({
   'coordination' : IDL.Null,
   'administration' : IDL.Null,
   'professional' : IDL.Null,
+  'coordinator' : IDL.Null,
 });
 export const UserProfile = IDL.Record({
   'appRole' : AppUserRole,
@@ -242,6 +289,17 @@ export const CoordinationDashboard = IDL.Record({
   'monthlyEvolution' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
   'totalActivitiesPerMuseum' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
 });
+export const DateRange = IDL.Record({
+  'startYear' : Year,
+  'endMonth' : Month,
+  'startMonth' : Month,
+  'endYear' : Year,
+});
+export const AudienceQueryType = IDL.Variant({
+  'customRange' : DateRange,
+  'cumulativeTotal' : IDL.Null,
+  'specificMonth' : IDL.Record({ 'month' : Month, 'year' : Year }),
+});
 export const ApprovalStatus = IDL.Variant({
   'pending' : IDL.Null,
   'approved' : IDL.Null,
@@ -263,6 +321,10 @@ export const Goal = IDL.Record({
   'active' : IDL.Bool,
   'name' : IDL.Text,
   'description' : IDL.Opt(IDL.Text),
+});
+export const ActivitySearchResult = IDL.Record({
+  'id' : ActivityId,
+  'activityName' : IDL.Text,
 });
 
 export const idlService = IDL.Service({
@@ -296,8 +358,10 @@ export const idlService = IDL.Service({
   'addGoal' : IDL.Func([IDL.Text, IDL.Opt(IDL.Text)], [], []),
   'approveUser' : IDL.Func([IDL.Principal], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-  'createActivity' : IDL.Func([Activity], [ActivityId], []),
+  'createActivity' : IDL.Func([ActivityCreate], [ActivityId], []),
   'createReport' : IDL.Func([Report], [ReportId], []),
+  'deleteActivity' : IDL.Func([ActivityId], [], []),
+  'deleteReport' : IDL.Func([ReportId], [], []),
   'deleteUserProfile' : IDL.Func([IDL.Principal], [], []),
   'getActivitiesForReport' : IDL.Func(
       [ReportId],
@@ -316,6 +380,11 @@ export const idlService = IDL.Service({
     ),
   'getReport' : IDL.Func([ReportId], [Report], ['query']),
   'getReportsForUser' : IDL.Func([IDL.Principal], [IDL.Vec(Report)], ['query']),
+  'getTotalGeneralAudience' : IDL.Func(
+      [AudienceQueryType],
+      [IDL.Nat],
+      ['query'],
+    ),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -323,9 +392,11 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
+  'listAllActivities' : IDL.Func([], [IDL.Vec(Activity)], ['query']),
   'listAllUserProfiles' : IDL.Func([], [IDL.Vec(FullUserProfile)], ['query']),
   'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
   'listGoals' : IDL.Func([], [IDL.Vec(Goal)], ['query']),
+  'rejectUser' : IDL.Func([IDL.Principal], [], []),
   'requestApproval' : IDL.Func([], [], []),
   'reviewReport' : IDL.Func(
       [ReportId, Status, IDL.Opt(IDL.Text), IDL.Opt(ExternalBlob)],
@@ -333,6 +404,11 @@ export const idlService = IDL.Service({
       [],
     ),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'searchActivitiesByName' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(ActivitySearchResult)],
+      ['query'],
+    ),
   'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
   'submitReport' : IDL.Func([ReportId], [], []),
   'toggleGoalActive' : IDL.Func([IDL.Nat], [], []),
@@ -368,6 +444,7 @@ export const idlFactory = ({ IDL }) => {
     'guest' : IDL.Null,
   });
   const ActivityId = IDL.Text;
+  const Attachment = IDL.Vec(IDL.Nat8);
   const ActivityStatus = IDL.Variant({
     'notStarted' : IDL.Null,
     'cancelled' : IDL.Null,
@@ -445,9 +522,10 @@ export const idlFactory = ({ IDL }) => {
     'extra' : IDL.Null,
     'routine' : IDL.Null,
   });
-  const Activity = IDL.Record({
+  const ActivityCreate = IDL.Record({
     'id' : ActivityId,
     'pcd' : IDL.Nat,
+    'files' : IDL.Vec(Attachment),
     'status' : ActivityStatus,
     'evidences' : IDL.Vec(EvidenceType),
     'activityName' : IDL.Text,
@@ -469,6 +547,7 @@ export const idlFactory = ({ IDL }) => {
     'children' : IDL.Nat,
     'dedicatedHours' : IDL.Opt(IDL.Nat),
     'achievedResult' : IDL.Opt(IDL.Int),
+    'linkedActivityId' : IDL.Opt(ActivityId),
     'totalAudience' : IDL.Nat,
     'productRealised' : ProductRealised,
     'partnershipsInvolved' : IDL.Opt(IDL.Text),
@@ -538,10 +617,54 @@ export const idlFactory = ({ IDL }) => {
     'consolidatedGoals' : IDL.Opt(IDL.Text),
     'sendDate' : IDL.Opt(Time),
   });
+  const Activity = IDL.Record({
+    'id' : ActivityId,
+    'pcd' : IDL.Nat,
+    'files' : IDL.Vec(Attachment),
+    'status' : ActivityStatus,
+    'evidences' : IDL.Vec(EvidenceType),
+    'activityName' : IDL.Text,
+    'executedDescription' : IDL.Text,
+    'plannedIndicator' : IDL.Opt(IDL.Text),
+    'hoursNotApplicable' : IDL.Bool,
+    'partnerName' : IDL.Opt(IDL.Text),
+    'partnerType' : IDL.Opt(IDL.Text),
+    'cancellationReason' : IDL.Opt(IDL.Text),
+    'museum' : MuseumLocation,
+    'date' : Date,
+    'objective' : IDL.Opt(IDL.Text),
+    'goalStatus' : IDL.Opt(GoalStatus),
+    'achievedResults' : IDL.Text,
+    'actionType' : IDL.Text,
+    'hadPartnership' : IDL.Bool,
+    'audienceRange' : AudienceRange,
+    'elderly' : IDL.Nat,
+    'children' : IDL.Nat,
+    'dedicatedHours' : IDL.Opt(IDL.Nat),
+    'achievedResult' : IDL.Opt(IDL.Int),
+    'linkedActivityId' : IDL.Opt(ActivityId),
+    'totalAudience' : IDL.Nat,
+    'productRealised' : ProductRealised,
+    'partnershipsInvolved' : IDL.Opt(IDL.Text),
+    'adults' : IDL.Nat,
+    'quantity' : IDL.Opt(Quantity),
+    'attachmentsPrefix' : IDL.Text,
+    'technicalJustification' : IDL.Opt(IDL.Text),
+    'goalDescription' : IDL.Opt(IDL.Text),
+    'reportId' : ReportId,
+    'goalNumber' : IDL.Opt(IDL.Nat),
+    'qualitativeAssessment' : IDL.Text,
+    'quantitativeGoal' : IDL.Opt(IDL.Int),
+    'youth' : IDL.Nat,
+    'contributionPercent' : IDL.Opt(IDL.Float64),
+    'accessibilityOptions' : IDL.Vec(AccessibilityOption),
+    'classification' : Classification,
+  });
   const AppUserRole = IDL.Variant({
     'coordination' : IDL.Null,
     'administration' : IDL.Null,
     'professional' : IDL.Null,
+    'coordinator' : IDL.Null,
   });
   const UserProfile = IDL.Record({
     'appRole' : AppUserRole,
@@ -585,6 +708,17 @@ export const idlFactory = ({ IDL }) => {
     'monthlyEvolution' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
     'totalActivitiesPerMuseum' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
   });
+  const DateRange = IDL.Record({
+    'startYear' : Year,
+    'endMonth' : Month,
+    'startMonth' : Month,
+    'endYear' : Year,
+  });
+  const AudienceQueryType = IDL.Variant({
+    'customRange' : DateRange,
+    'cumulativeTotal' : IDL.Null,
+    'specificMonth' : IDL.Record({ 'month' : Month, 'year' : Year }),
+  });
   const ApprovalStatus = IDL.Variant({
     'pending' : IDL.Null,
     'approved' : IDL.Null,
@@ -606,6 +740,10 @@ export const idlFactory = ({ IDL }) => {
     'active' : IDL.Bool,
     'name' : IDL.Text,
     'description' : IDL.Opt(IDL.Text),
+  });
+  const ActivitySearchResult = IDL.Record({
+    'id' : ActivityId,
+    'activityName' : IDL.Text,
   });
   
   return IDL.Service({
@@ -639,8 +777,10 @@ export const idlFactory = ({ IDL }) => {
     'addGoal' : IDL.Func([IDL.Text, IDL.Opt(IDL.Text)], [], []),
     'approveUser' : IDL.Func([IDL.Principal], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-    'createActivity' : IDL.Func([Activity], [ActivityId], []),
+    'createActivity' : IDL.Func([ActivityCreate], [ActivityId], []),
     'createReport' : IDL.Func([Report], [ReportId], []),
+    'deleteActivity' : IDL.Func([ActivityId], [], []),
+    'deleteReport' : IDL.Func([ReportId], [], []),
     'deleteUserProfile' : IDL.Func([IDL.Principal], [], []),
     'getActivitiesForReport' : IDL.Func(
         [ReportId],
@@ -663,6 +803,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(Report)],
         ['query'],
       ),
+    'getTotalGeneralAudience' : IDL.Func(
+        [AudienceQueryType],
+        [IDL.Nat],
+        ['query'],
+      ),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
@@ -670,9 +815,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
+    'listAllActivities' : IDL.Func([], [IDL.Vec(Activity)], ['query']),
     'listAllUserProfiles' : IDL.Func([], [IDL.Vec(FullUserProfile)], ['query']),
     'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
     'listGoals' : IDL.Func([], [IDL.Vec(Goal)], ['query']),
+    'rejectUser' : IDL.Func([IDL.Principal], [], []),
     'requestApproval' : IDL.Func([], [], []),
     'reviewReport' : IDL.Func(
         [ReportId, Status, IDL.Opt(IDL.Text), IDL.Opt(ExternalBlob)],
@@ -680,6 +827,11 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'searchActivitiesByName' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(ActivitySearchResult)],
+        ['query'],
+      ),
     'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
     'submitReport' : IDL.Func([ReportId], [], []),
     'toggleGoalActive' : IDL.Func([IDL.Nat], [], []),

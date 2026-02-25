@@ -83,13 +83,24 @@ export interface FullUserProfile {
 }
 export type Year = bigint;
 export type Date_ = bigint;
+export interface ActivitySearchResult {
+    id: ActivityId;
+    activityName: string;
+}
 export interface UserApprovalInfo {
     status: ApprovalStatus;
     principal: Principal;
 }
+export interface DateRange {
+    startYear: Year;
+    endMonth: Month;
+    startMonth: Month;
+    endYear: Year;
+}
 export interface Activity {
     id: ActivityId;
     pcd: bigint;
+    files: Array<Attachment>;
     status: ActivityStatus;
     evidences: Array<EvidenceType>;
     activityName: string;
@@ -111,6 +122,7 @@ export interface Activity {
     children: bigint;
     dedicatedHours?: bigint;
     achievedResult?: bigint;
+    linkedActivityId?: ActivityId;
     totalAudience: bigint;
     productRealised: ProductRealised;
     partnershipsInvolved?: string;
@@ -129,6 +141,7 @@ export interface Activity {
     classification: Classification;
 }
 export type ActivityId = string;
+export type Attachment = Uint8Array;
 export interface StatusBreakdown {
     submitted: bigint;
     underReview: bigint;
@@ -137,6 +150,62 @@ export interface StatusBreakdown {
     analysis: bigint;
     draft: bigint;
 }
+export interface ActivityCreate {
+    id: ActivityId;
+    pcd: bigint;
+    files: Array<Attachment>;
+    status: ActivityStatus;
+    evidences: Array<EvidenceType>;
+    activityName: string;
+    executedDescription: string;
+    plannedIndicator?: string;
+    hoursNotApplicable: boolean;
+    partnerName?: string;
+    partnerType?: string;
+    cancellationReason?: string;
+    museum: MuseumLocation;
+    date: Date_;
+    objective?: string;
+    goalStatus?: GoalStatus;
+    achievedResults: string;
+    actionType: string;
+    hadPartnership: boolean;
+    audienceRange: AudienceRange;
+    elderly: bigint;
+    children: bigint;
+    dedicatedHours?: bigint;
+    achievedResult?: bigint;
+    linkedActivityId?: ActivityId;
+    totalAudience: bigint;
+    productRealised: ProductRealised;
+    partnershipsInvolved?: string;
+    adults: bigint;
+    quantity?: Quantity;
+    attachmentsPrefix: string;
+    technicalJustification?: string;
+    goalDescription?: string;
+    reportId: ReportId;
+    goalNumber?: bigint;
+    qualitativeAssessment: string;
+    quantitativeGoal?: bigint;
+    youth: bigint;
+    contributionPercent?: number;
+    accessibilityOptions: Array<AccessibilityOption>;
+    classification: Classification;
+}
+export type AudienceQueryType = {
+    __kind__: "customRange";
+    customRange: DateRange;
+} | {
+    __kind__: "cumulativeTotal";
+    cumulativeTotal: null;
+} | {
+    __kind__: "specificMonth";
+    specificMonth: {
+        month: Month;
+        year: Year;
+    };
+};
 export interface UserProfile {
     appRole: AppUserRole;
     museum: MuseumLocation;
@@ -165,7 +234,8 @@ export enum ActivityStatus {
 export enum AppUserRole {
     coordination = "coordination",
     administration = "administration",
-    professional = "professional"
+    professional = "professional",
+    coordinator = "coordinator"
 }
 export enum ApprovalStatus {
     pending = "pending",
@@ -258,20 +328,33 @@ export enum UserRole {
     user = "user",
     guest = "guest"
 }
-/**
- * / This file imports "administrative" components:
- * / * Authorization
- * / * External blob storage
- */
 export interface backendInterface {
     addGoal(name: string, description: string | null): Promise<void>;
+    /**
+     * / Approve a user.
+     * / Only the exclusive #coordination role or admin may approve users.
+     */
     approveUser(user: Principal): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createActivity(activity: Activity): Promise<ActivityId>;
+    createActivity(activity: ActivityCreate): Promise<ActivityId>;
     createReport(report: Report): Promise<ReportId>;
     /**
+     * / Delete an activity.
+     * / Coordinators and admins can delete any activity.
+     * / Professionals can only delete activities belonging to their own reports
+     * / when those reports are in draft or requiresAdjustment status.
+     */
+    deleteActivity(activityId: ActivityId): Promise<void>;
+    /**
+     * / Delete a report.
+     * / Coordinators and admins can delete any report.
+     * / Professionals can only delete their own reports in draft or
+     * / requiresAdjustment status.
+     */
+    deleteReport(reportId: ReportId): Promise<void>;
+    /**
      * / Delete any user profile.
-     * / Callable by coordinator or admin.
+     * / Callable by exclusive coordinator, or admin.
      */
     deleteUserProfile(user: Principal): Promise<void>;
     getActivitiesForReport(reportId: ReportId): Promise<Array<Activity>>;
@@ -283,45 +366,70 @@ export interface backendInterface {
     getCoordinationDashboardWithFilter(filter: DashboardFilter): Promise<CoordinationDashboard>;
     getReport(reportId: ReportId): Promise<Report>;
     getReportsForUser(userId: Principal): Promise<Array<Report>>;
+    getTotalGeneralAudience(queryType: AudienceQueryType): Promise<bigint>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     /**
-     * / Returns true for admins, coordinators (Daniel Perini Santos), and
-     * / explicitly approved users — no approval gate for the coordinator.
+     * / Returns true for admins, coordinators, and explicitly approved users.
      */
     isCallerApproved(): Promise<boolean>;
+    listAllActivities(): Promise<Array<Activity>>;
     listAllUserProfiles(): Promise<Array<FullUserProfile>>;
     listApprovals(): Promise<Array<UserApprovalInfo>>;
     listGoals(): Promise<Array<Goal>>;
+    rejectUser(user: Principal): Promise<void>;
     requestApproval(): Promise<void>;
+    /**
+     * / Review (change status of) a report.
+     * / The #coordination role (Daniel Perini Santos) is explicitly required for
+     * / approving users and coordinator-level users. All other coordinators may
+     * / still move reports to #underReview or #requiresAdjustment.
+     */
     reviewReport(reportId: ReportId, newStatus: Status, comments: string | null, signature: ExternalBlob | null): Promise<void>;
     /**
      * / Save the caller's own profile.
-     * / The #coordination role is only permitted when the profile name is
-     * / exactly COORDINATION_RESERVED_NAME; otherwise it is downgraded to
-     * / #professional.
+     * / The #coordination role is only permitted when the
+     * / profile name is exactly COORDINATION_RESERVED_NAME; otherwise it is
+     * / downgraded to #coordinator.
      */
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    searchActivitiesByName(searchTerm: string): Promise<Array<ActivitySearchResult>>;
+    /**
+     * / Set approval status for a user.
+     * / Only admins can call this low-level function.
+     */
     setApproval(user: Principal, status: ApprovalStatus): Promise<void>;
     submitReport(reportId: ReportId): Promise<void>;
     toggleGoalActive(goalId: bigint): Promise<void>;
+    /**
+     * / Update an activity.
+     * / Coordinators and admins can edit any activity.
+     * / Professionals can only edit activities belonging to their own reports
+     * / when those reports are in draft or requiresAdjustment status.
+     */
     updateActivity(activityId: ActivityId, updated: Activity): Promise<void>;
     updateCoordinationFields(reportId: ReportId, executiveSummary: string, consolidatedGoals: string, institutionalObservations: string): Promise<void>;
+    /**
+     * / Update a report.
+     * / Coordinators and admins can edit any report.
+     * / Professionals can only edit their own reports when in draft or
+     * / requiresAdjustment status.
+     */
     updateReport(reportId: ReportId, updated: Report): Promise<void>;
     /**
      * / Update any user's profile fields (name, role, museum).
-     * / Callable by coordinator or admin.
-     * / The #coordination role is only permitted when the target profile name is
-     * / exactly COORDINATION_RESERVED_NAME; otherwise it is downgraded to
-     * / #professional.
+     * / Callable by coordinator, or admin.
+     * / The #coordination role is only permitted when the
+     * / target profile name is exactly COORDINATION_RESERVED_NAME; otherwise it
+     * / is downgraded to #coordinator.
      */
     updateUserProfile(user: Principal, updatedProfile: UserProfile): Promise<void>;
     /**
      * / Update only the role of a user.
-     * / Callable by coordinator or admin.
-     * / The #coordination role is only permitted when the target user's registered
-     * / name is exactly COORDINATION_RESERVED_NAME; otherwise it is downgraded to
-     * / #professional.
+     * / Callable by coordinator, or admin.
+     * / The #coordination role is only permitted when the
+     * / target user's registered name is exactly COORDINATION_RESERVED_NAME;
+     * / otherwise it is downgraded to #coordinator.
      */
     updateUserRole(user: Principal, newRole: AppUserRole): Promise<void>;
     uploadSignature(reportId: ReportId, signatureBase64: string): Promise<void>;

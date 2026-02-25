@@ -1,12 +1,13 @@
 # Specification
 
 ## Summary
-**Goal:** Grant the coordinator role permission to create reports and insert activities, both in the backend authorization logic and the frontend UI.
+**Goal:** Add a "Público Geral" (general audience) KPI card to the Dashboard with period filter options: current month, cumulative, and custom date range.
 
 **Planned changes:**
-- Update backend authorization to allow the coordinator role to call the createReport function.
-- Update backend authorization to allow the coordinator role to call the createActivity function.
-- Update the Sidebar navigation so coordinators see menu items for creating reports and inserting activities.
-- Ensure ReportFormPage and ActivityFormPage are fully editable and submittable by coordinator users (not rendered as read-only).
+- Add a backend query function in `backend/main.mo` that returns the total `publicoGeral` across approved/submitted reports, supporting three filter modes: specific month+year, cumulative (all time), and custom date range (start/end month+year)
+- Add a "Público Geral" KPI card to the Dashboard page using the existing KPICard component
+- Add a period selector control with three options: "Mês Atual", "Acumulado", and "Período Customizado"
+- When "Período Customizado" is selected, show start and end month+year pickers
+- The KPI card updates reactively based on the selected period, with loading and error states
 
-**User-visible outcome:** Coordinators can now create new reports and insert activities through the application without receiving authorization errors or encountering read-only forms, while all other roles retain their existing permissions unchanged.
+**User-visible outcome:** Users can view the total general audience on the dashboard and filter it by current month, all-time cumulative total, or a custom date range they define.

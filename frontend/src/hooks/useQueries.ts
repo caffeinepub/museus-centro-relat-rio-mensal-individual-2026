@@ -3,18 +3,20 @@ import { useActor } from './useActor';
 import type {
   Report,
   Activity,
+  ActivityCreate,
   UserProfile,
   FullUserProfile,
+  Goal,
   DashboardFilter,
   CoordinationDashboard,
-  Status,
+  ActivitySearchResult,
   AppUserRole,
-  ApprovalStatus,
+  AudienceQueryType,
 } from '../backend';
-import { ExternalBlob } from '../backend';
-import type { Principal } from '@icp-sdk/core/principal';
+import { ApprovalStatus } from '../backend';
+import type { Principal } from '@dfinity/principal';
 
-// ── User Profile Hooks ─────────────────────────────────────────────────────
+// ── User Profile ──────────────────────────────────────────────────────────────
 
 export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
@@ -36,6 +38,10 @@ export function useGetCallerUserProfile() {
   };
 }
 
+export function useIsCoordinadorGeral(userProfile: UserProfile | null | undefined): boolean {
+  return !!(userProfile && userProfile.appRole === 'coordination' && userProfile.name === 'Daniel Perini Santos');
+}
+
 export function useSaveCallerUserProfile() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
@@ -47,21 +53,20 @@ export function useSaveCallerUserProfile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
     },
   });
 }
 
-export function useListAllUserProfiles() {
-  const { actor, isFetching: actorFetching } = useActor();
+export function useAllUserProfiles() {
+  const { actor, isFetching } = useActor();
 
   return useQuery<FullUserProfile[]>({
     queryKey: ['allUserProfiles'],
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) return [];
       return actor.listAllUserProfiles();
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !isFetching,
   });
 }
 
@@ -70,14 +75,12 @@ export function useUpdateUserProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ user, updatedProfile }: { user: Principal; updatedProfile: UserProfile }) => {
+    mutationFn: async ({ user, profile }: { user: Principal; profile: UserProfile }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.updateUserProfile(user, updatedProfile);
+      return actor.updateUserProfile(user, profile);
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
-      queryClient.invalidateQueries({ queryKey: ['userProfile', variables.user.toString()] });
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
     },
   });
 }
@@ -87,13 +90,12 @@ export function useUpdateUserRole() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ user, newRole }: { user: Principal; newRole: AppUserRole }) => {
+    mutationFn: async ({ user, role }: { user: Principal; role: AppUserRole }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.updateUserRole(user, newRole);
+      return actor.updateUserRole(user, role);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
     },
   });
 }
@@ -109,24 +111,22 @@ export function useDeleteUserProfile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
-      queryClient.invalidateQueries({ queryKey: ['approvals'] });
     },
   });
 }
 
-// ── Approval Hooks ─────────────────────────────────────────────────────────
+// ── Approval ──────────────────────────────────────────────────────────────────
 
 export function useIsCallerApproved() {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
   return useQuery<boolean>({
     queryKey: ['isCallerApproved'],
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) return false;
       return actor.isCallerApproved();
     },
-    enabled: !!actor && !actorFetching,
-    staleTime: 30_000,
+    enabled: !!actor && !isFetching,
   });
 }
 
@@ -141,8 +141,6 @@ export function useRequestApproval() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['isCallerApproved'] });
-      queryClient.invalidateQueries({ queryKey: ['approvals'] });
-      queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
     },
   });
 }
@@ -164,14 +162,14 @@ export function useApproveUser() {
   });
 }
 
-export function useSetApproval() {
+export function useRejectUser() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ user, status }: { user: Principal; status: ApprovalStatus }) => {
+    mutationFn: async (user: Principal) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.setApproval(user, status);
+      return actor.rejectUser(user);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allUserProfiles'] });
@@ -181,57 +179,44 @@ export function useSetApproval() {
   });
 }
 
-export function useListApprovals() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery({
-    queryKey: ['approvals'],
-    queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.listApprovals();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-}
-
-// ── Report Hooks ───────────────────────────────────────────────────────────
+// ── Reports ───────────────────────────────────────────────────────────────────
 
 export function useReportsForUser(userId: Principal | undefined) {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
   return useQuery<Report[]>({
-    queryKey: ['reportsForUser', userId?.toString()],
+    queryKey: ['reports', userId?.toString()],
     queryFn: async () => {
       if (!actor || !userId) return [];
       return actor.getReportsForUser(userId);
     },
-    enabled: !!actor && !actorFetching && !!userId,
+    enabled: !!actor && !isFetching && !!userId,
   });
 }
 
 export function useAllReports() {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
   return useQuery<Report[]>({
     queryKey: ['allReports'],
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) return [];
       return actor.getAllReports();
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !isFetching,
   });
 }
 
 export function useReport(reportId: string | undefined) {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
-  return useQuery<Report>({
+  return useQuery<Report | null>({
     queryKey: ['report', reportId],
     queryFn: async () => {
-      if (!actor || !reportId) throw new Error('Actor or reportId not available');
+      if (!actor || !reportId) return null;
       return actor.getReport(reportId);
     },
-    enabled: !!actor && !actorFetching && !!reportId,
+    enabled: !!actor && !isFetching && !!reportId,
   });
 }
 
@@ -245,8 +230,8 @@ export function useCreateReport() {
       return actor.createReport(report);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['allReports'] });
-      queryClient.invalidateQueries({ queryKey: ['reportsForUser'] });
     },
   });
 }
@@ -256,14 +241,30 @@ export function useUpdateReport() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ reportId, updated }: { reportId: string; updated: Report }) => {
+    mutationFn: async ({ reportId, report }: { reportId: string; report: Report }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.updateReport(reportId, updated);
+      return actor.updateReport(reportId, report);
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['allReports'] });
-      queryClient.invalidateQueries({ queryKey: ['reportsForUser'] });
-      queryClient.invalidateQueries({ queryKey: ['report', variables.reportId] });
+      queryClient.invalidateQueries({ queryKey: ['report'] });
+    },
+  });
+}
+
+export function useDeleteReport() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (reportId: string) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.deleteReport(reportId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['allReports'] });
     },
   });
 }
@@ -277,10 +278,10 @@ export function useSubmitReport() {
       if (!actor) throw new Error('Actor not available');
       return actor.submitReport(reportId);
     },
-    onSuccess: (_data, reportId) => {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['allReports'] });
-      queryClient.invalidateQueries({ queryKey: ['reportsForUser'] });
-      queryClient.invalidateQueries({ queryKey: ['report', reportId] });
+      queryClient.invalidateQueries({ queryKey: ['report'] });
     },
   });
 }
@@ -292,22 +293,22 @@ export function useReviewReport() {
   return useMutation({
     mutationFn: async ({
       reportId,
-      newStatus,
+      status,
       comments,
       signature,
     }: {
       reportId: string;
-      newStatus: Status;
-      comments: string | null;
-      signature: ExternalBlob | null;
+      status: import('../backend').Status;
+      comments: string | undefined;
+      signature: import('../backend').ExternalBlob | undefined;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.reviewReport(reportId, newStatus, comments, signature);
+      return actor.reviewReport(reportId, status, comments ?? null, signature ?? null);
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['allReports'] });
-      queryClient.invalidateQueries({ queryKey: ['reportsForUser'] });
-      queryClient.invalidateQueries({ queryKey: ['report', variables.reportId] });
+      queryClient.invalidateQueries({ queryKey: ['report'] });
     },
   });
 }
@@ -331,51 +332,52 @@ export function useUpdateCoordinationFields() {
       if (!actor) throw new Error('Actor not available');
       return actor.updateCoordinationFields(reportId, executiveSummary, consolidatedGoals, institutionalObservations);
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['allReports'] });
-      queryClient.invalidateQueries({ queryKey: ['report', variables.reportId] });
+      queryClient.invalidateQueries({ queryKey: ['report'] });
     },
   });
 }
 
-// ── Activity Hooks ─────────────────────────────────────────────────────────
+// ── Activities ────────────────────────────────────────────────────────────────
 
 export function useActivitiesForReport(reportId: string | undefined) {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
   return useQuery<Activity[]>({
-    queryKey: ['activitiesForReport', reportId],
+    queryKey: ['activities', reportId],
     queryFn: async () => {
       if (!actor || !reportId) return [];
       return actor.getActivitiesForReport(reportId);
     },
-    enabled: !!actor && !actorFetching && !!reportId,
-  });
-}
-
-export function useActivity(activityId: string | undefined) {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<Activity>({
-    queryKey: ['activity', activityId],
-    queryFn: async () => {
-      if (!actor || !activityId) throw new Error('Actor or activityId not available');
-      return actor.getActivity(activityId);
-    },
-    enabled: !!actor && !actorFetching && !!activityId,
+    enabled: !!actor && !isFetching && !!reportId,
   });
 }
 
 export function useAllActivities() {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
   return useQuery<Activity[]>({
     queryKey: ['allActivities'],
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) return [];
       return actor.getAllActivities();
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useActivity(activityId: string | undefined) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<Activity | null>({
+    queryKey: ['activity', activityId],
+    queryFn: async () => {
+      if (!actor || !activityId) return null;
+      return actor.getActivity(activityId);
+    },
+    enabled: !!actor && !isFetching && !!activityId,
   });
 }
 
@@ -384,12 +386,12 @@ export function useCreateActivity() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (activity: Activity) => {
+    mutationFn: async (activity: ActivityCreate) => {
       if (!actor) throw new Error('Actor not available');
       return actor.createActivity(activity);
     },
-    onSuccess: (_data, activity) => {
-      queryClient.invalidateQueries({ queryKey: ['activitiesForReport', activity.reportId] });
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['activities', variables.reportId] });
       queryClient.invalidateQueries({ queryKey: ['allActivities'] });
     },
   });
@@ -405,7 +407,7 @@ export function useUpdateActivity() {
       return actor.updateActivity(activityId, activity);
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['activitiesForReport', variables.activity.reportId] });
+      queryClient.invalidateQueries({ queryKey: ['activities', variables.activity.reportId] });
       queryClient.invalidateQueries({ queryKey: ['activity', variables.activityId] });
       queryClient.invalidateQueries({ queryKey: ['allActivities'] });
     },
@@ -419,34 +421,40 @@ export function useDeleteActivity() {
   return useMutation({
     mutationFn: async ({ activityId, reportId }: { activityId: string; reportId: string }) => {
       if (!actor) throw new Error('Actor not available');
-      // Backend doesn't have deleteActivity, so we mark it as cancelled
-      const activity = await actor.getActivity(activityId);
-      return actor.updateActivity(activityId, {
-        ...activity,
-        status: 'cancelled' as Activity['status'],
-        cancellationReason: 'Removido pelo usuário',
-      });
+      return actor.deleteActivity(activityId);
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['activitiesForReport', variables.reportId] });
-      queryClient.invalidateQueries({ queryKey: ['activity', variables.activityId] });
+      queryClient.invalidateQueries({ queryKey: ['activities', variables.reportId] });
       queryClient.invalidateQueries({ queryKey: ['allActivities'] });
     },
   });
 }
 
-// ── Goals Hooks ────────────────────────────────────────────────────────────
+export function useSearchActivities(searchTerm: string) {
+  const { actor, isFetching } = useActor();
 
-export function useListGoals() {
-  const { actor, isFetching: actorFetching } = useActor();
+  return useQuery<ActivitySearchResult[]>({
+    queryKey: ['searchActivities', searchTerm],
+    queryFn: async () => {
+      if (!actor || !searchTerm.trim()) return [];
+      return actor.searchActivitiesByName(searchTerm);
+    },
+    enabled: !!actor && !isFetching && searchTerm.trim().length > 0,
+  });
+}
 
-  return useQuery({
+// ── Goals ─────────────────────────────────────────────────────────────────────
+
+export function useGoals() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<Goal[]>({
     queryKey: ['goals'],
     queryFn: async () => {
-      if (!actor) throw new Error('Actor not available');
+      if (!actor) return [];
       return actor.listGoals();
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !isFetching,
   });
 }
 
@@ -455,9 +463,9 @@ export function useAddGoal() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ name, description }: { name: string; description: string | null }) => {
+    mutationFn: async ({ name, description }: { name: string; description?: string }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.addGoal(name, description);
+      return actor.addGoal(name, description ?? null);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goals'] });
@@ -480,10 +488,10 @@ export function useToggleGoalActive() {
   });
 }
 
-// ── Dashboard Hooks ────────────────────────────────────────────────────────
+// ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export function useCoordinationDashboard(filter: DashboardFilter) {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor, isFetching } = useActor();
 
   return useQuery<CoordinationDashboard>({
     queryKey: ['coordinationDashboard', filter],
@@ -491,6 +499,38 @@ export function useCoordinationDashboard(filter: DashboardFilter) {
       if (!actor) throw new Error('Actor not available');
       return actor.getCoordinationDashboardWithFilter(filter);
     },
-    enabled: !!actor && !actorFetching,
+    enabled: !!actor && !isFetching,
+  });
+}
+
+// ── General Audience ──────────────────────────────────────────────────────────
+
+/** Serialize an AudienceQueryType to a stable string key (avoids BigInt in query keys). */
+function serializeAudienceQueryType(queryType: AudienceQueryType | null): string {
+  if (!queryType) return 'null';
+  if (queryType.__kind__ === 'cumulativeTotal') return 'cumulativeTotal';
+  if (queryType.__kind__ === 'specificMonth') {
+    const { month, year } = queryType.specificMonth;
+    return `specificMonth:${month}:${year.toString()}`;
+  }
+  if (queryType.__kind__ === 'customRange') {
+    const { startMonth, startYear, endMonth, endYear } = queryType.customRange;
+    return `customRange:${startMonth}:${startYear.toString()}:${endMonth}:${endYear.toString()}`;
+  }
+  return 'unknown';
+}
+
+export function useGetTotalGeneralAudience(queryType: AudienceQueryType | null) {
+  const { actor, isFetching } = useActor();
+
+  const queryKey = ['totalGeneralAudience', serializeAudienceQueryType(queryType)];
+
+  return useQuery<bigint>({
+    queryKey,
+    queryFn: async () => {
+      if (!actor || !queryType) throw new Error('Actor or query type not available');
+      return actor.getTotalGeneralAudience(queryType);
+    },
+    enabled: !!actor && !isFetching && queryType !== null,
   });
 }
