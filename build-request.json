@@ -1,61 +1,35 @@
 {
   "kind": "build_request",
-  "title": "Re-add Monthly Report Export Button (PDF + CSV) with Month/Year Selector",
-  "projectName": "Museus Centro Reports",
+  "title": "Remove transparency from dropdown lists",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Add a month/year selector component (defaulting to the current month and year) that allows the user to pick any month before triggering the export. This selector should be accessible from the report list page or a dedicated export button area visible to the logged-in user.",
+      "text": "Remove transparency from all dropdown/select lists throughout the application. All dropdown menus, select popover content, and suspended lists must have a fully opaque background (no transparency or backdrop opacity). This applies to all Select, Popover, DropdownMenu, and similar overlay components used across every page and component in the frontend.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-recent-3"
+          "msg-latest"
         ],
         "quotes": [
-          "pode escolher o mes e o mes atual sempre default"
+          "retire a transparencia nas listas suspemsas"
         ]
       },
       "acceptanceCriteria": [
-        "A month selector dropdown and year selector (or combined month/year picker) is displayed near the export button.",
-        "The selector defaults to the current month and year on initial render.",
-        "The user can change the month and year before exporting.",
-        "The selected month/year is used to filter which report and activities are exported."
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "text": "Add an export button on the reports list page (ReportsListPage) that exports the current user's monthly report and all its associated activities. The export must support two formats: PDF (using the existing pdfGenerator utility) and CSV/Excel (using the existing excelGenerator utility). The exported data must include all activity fields for the selected month/year.",
-      "target": "both",
-      "source": {
-        "messageIds": [
-          "msg-recent-1",
-          "msg-recent-3"
-        ],
-        "quotes": [
-          "reinsira botao de exportar relatrório mensal por usuário incluindo atividades",
-          "1 ambos 2 as atividades 3 pode escolher o mes e o mes atual sempre default"
-        ]
-      },
-      "acceptanceCriteria": [
-        "An 'Export Report' button (or button group) is visible on the reports list page for the logged-in user.",
-        "Clicking the PDF export option generates and downloads a PDF containing the user's report metadata and all associated activities for the selected month/year.",
-        "Clicking the CSV/Excel export option generates and downloads a CSV file containing the user's report metadata and all associated activities for the selected month/year.",
-        "If no report exists for the selected month/year, a user-friendly message is shown (e.g., 'No report found for this period').",
-        "The export is scoped to the currently authenticated user's own data only.",
-        "Both export options use the selected month/year from the month/year selector (REQ-1)."
+        "All dropdown/select lists render with a fully opaque background — no see-through or semi-transparent effect.",
+        "The fix applies consistently across all pages: ReportsListPage, MonthYearSelector, ApprovalsPage, DashboardPage, ActivityFormPage, ReportFormPage, UserManagementPage, and any other page with dropdowns.",
+        "The opaque background works correctly in both light and dark themes.",
+        "No other UI elements are affected by this change."
       ]
     }
   ],
   "constraints": [
-    "Do not modify files listed in frontend.immutablePaths.",
-    "Reuse existing pdfGenerator and excelGenerator utilities for the export logic.",
-    "Export is scoped per user — only the authenticated user's own report and activities are included."
+    "Do not modify any files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui.",
+    "Do not alter any backend logic or data models."
   ],
   "nonGoals": [
-    "Exporting reports for other users (admin consolidated export is a separate feature).",
-    "Adding new backend endpoints solely for export — use existing query hooks.",
-    "Changing the existing PDF or CSV format/structure."
+    "Changing any other visual styles beyond the dropdown/list background opacity.",
+    "Adding new features or modifying existing report/export functionality."
   ],
   "imageRequirements": {
     "required": [],

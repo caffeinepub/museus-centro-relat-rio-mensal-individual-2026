@@ -2,11 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-add-a-month-year-selector-component-defaulting-to-the-current-month-and-year-that-allows-the-user-to-pick-any-month-before-triggering-the-export-this-selector-should-be-accessible-from-the-report-list-page-or-a-dedicated-export-button-area-visible-to-the-logged-in-user",
-      "featureTitle": "Add a month/year selector component (defaulting to the current month and year) that allows the user to pick any month before triggering the export. This selector should be accessible from the report list page or a dedicated export button area visible to the logged-in user.",
+      "featureId": "feature-remove-transparency-from-all-dropdown-select-lists-throughout-the-application-all-dropdown-menus-select-popover-content-and-suspended-lists-must-have-a-fully-opaque-background-no-transparency-or-backdrop-opacity-this-applies-to-all-select-popover-dropdownmenu-and-similar-overlay-components-used-across-every-page-and-component-in-the-frontend",
+      "featureTitle": "Remove transparency from all dropdown/select lists throughout the application. All dropdown menus, select popover content, and suspended lists must have a fully opaque background (no transparency or backdrop opacity). This applies to all Select, Popover, DropdownMenu, and similar overlay components used across every page and component in the frontend.",
       "files": [
-        "frontend/src/components/MonthYearSelector.tsx",
-        "frontend/src/pages/ReportsListPage.tsx"
+        "frontend/src/index.css"
       ],
       "components": [
         "authorization@4.0.0",
@@ -20,27 +19,6 @@
       ],
       "testIds": [
         "REQ-1"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-add-an-export-button-on-the-reports-list-page-reportslistpage-that-exports-the-current-user-s-monthly-report-and-all-its-associated-activities-the-export-must-support-two-formats-pdf-using-the-existing-pdfgenerator-utility-and-csv-excel-using-the-existing-excelgenerator-utility-the-exported-data-must-include-all-activity-fields-for-the-selected-month-year",
-      "featureTitle": "Add an export button on the reports list page (ReportsListPage) that exports the current user's monthly report and all its associated activities. The export must support two formats: PDF (using the existing pdfGenerator utility) and CSV/Excel (using the existing excelGenerator utility). The exported data must include all activity fields for the selected month/year.",
-      "files": [
-        "frontend/src/pages/ReportsListPage.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "user-approval@3.0.0"
-      ],
-      "testIds": [
-        "REQ-2"
       ],
       "confidence": "high"
     }

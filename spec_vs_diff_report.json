@@ -1,17 +1,14 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-25T19:35:17.304Z",
-  "summary": "The diff implements both REQ-1 and REQ-2 substantially. A MonthYearSelector component is added with month/year dropdowns defaulting to current month/year. The ReportsListPage is updated with an export section containing PDF and CSV buttons, using existing pdfGenerator and excelGenerator utilities, scoped to the authenticated user. A useGetReportWithActivities hook is added for export. Toast notifications handle the 'no report found' case. All major acceptance criteria appear to be met.",
+  "generatedAt": "2026-02-25T21:45:58.584Z",
+  "summary": "The diff implements REQ-1 by adding global CSS rules in frontend/src/index.css that force fully opaque backgrounds on all Radix UI overlay components (Select, Popover, DropdownMenu, etc.) using CSS custom properties and !important overrides. The fix covers both light and dark themes via CSS variables. Some component-level fixes (explicit bg-background classes on dropdowns in ActivityFormPage) are also noted in the file summaries. The implementation appears comprehensive, though the CSS content was truncated so full verification is limited.",
   "missing_requirements": [],
   "hallucinated_features": [],
-  "confidence": 0.87,
+  "confidence": 0.82,
   "changed_files": [
-    "backend/main.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/MonthYearSelector.tsx",
-    "frontend/src/hooks/useQueries.ts",
-    "frontend/src/pages/ReportsListPage.tsx",
+    "frontend/src/index.css",
     "project_state.json"
   ]
 }

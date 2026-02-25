@@ -1,56 +1,27 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Re-add Monthly Report Export Button (PDF + CSV) with Month/Year Selector",
+  "title": "Remove transparency from dropdown lists",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Add a month/year selector component to the reports list page that defaults to the current month and year, allowing users to pick any month before triggering export",
+      "summary": "Remove transparency from all dropdown/select lists throughout the application by ensuring all Select, Popover, DropdownMenu, and similar overlay components have fully opaque backgrounds",
       "acceptanceCriteria": [
-        "A month selector dropdown and year selector (or combined month/year picker) is displayed near the export button.",
-        "The selector defaults to the current month and year on initial render.",
-        "The user can change the month and year before exporting.",
-        "The selected month/year is used to filter which report and activities are exported."
+        "All dropdown/select lists render with a fully opaque background — no see-through or semi-transparent effect.",
+        "The fix applies consistently across all pages: ReportsListPage, MonthYearSelector, ApprovalsPage, DashboardPage, ActivityFormPage, ReportFormPage, UserManagementPage, and any other page with dropdowns.",
+        "The opaque background works correctly in both light and dark themes.",
+        "No other UI elements are affected by this change."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/MonthYearSelector.tsx",
-          "operation": "create",
-          "description": "Create a reusable month/year selector component using shadcn/ui Select components. The component should accept value/onChange props for controlled state, default to the current month and year, and provide dropdowns for both month (using Month enum) and year (supporting years 2024-2027). Use the getMonthLabel utility from frontend/src/utils/labels.ts for Portuguese month names."
+          "path": "frontend/src/index.css",
+          "operation": "modify",
+          "description": "Update CSS custom properties or add global override rules to ensure all dropdown/popover content (SelectContent, PopoverContent, DropdownMenuContent) renders with fully opaque backgrounds. Set background-opacity to 1.0 or add backdrop-filter: none to remove any transparency effects. Ensure the changes work in both light and dark themes by targeting the appropriate CSS variables or class selectors used by shadcn/ui components."
         },
         {
-          "path": "frontend/src/pages/ReportsListPage.tsx",
+          "path": "frontend/tailwind.config.js",
           "operation": "modify",
-          "description": "Add state management for selected month and year (defaulting to current month/year using new Date()). Import and render the MonthYearSelector component above the reports list, positioned near where the export buttons will be added in REQ-2. Pass the selected month/year state to the component and update local state on change."
-        }
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "summary": "Add PDF and CSV export buttons to the reports list page that export the authenticated user's report and activities for the selected month/year using existing pdfGenerator and excelGenerator utilities",
-      "acceptanceCriteria": [
-        "An 'Export Report' button (or button group) is visible on the reports list page for the logged-in user.",
-        "Clicking the PDF export option generates and downloads a PDF containing the user's report metadata and all associated activities for the selected month/year.",
-        "Clicking the CSV/Excel export option generates and downloads a CSV file containing the user's report metadata and all associated activities for the selected month/year.",
-        "If no report exists for the selected month/year, a user-friendly message is shown (e.g., 'No report found for this period').",
-        "The export is scoped to the currently authenticated user's own data only.",
-        "Both export options use the selected month/year from the month/year selector (REQ-1)."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/pages/ReportsListPage.tsx",
-          "operation": "modify",
-          "description": "Add export button group (PDF and CSV buttons) below the MonthYearSelector component. Implement onClick handlers that: 1) Filter the current user's reports by the selected month and year (using the reports array from useGetReportsForUser), 2) If no matching report is found, display a toast notification ('No report found for this period'), 3) If found, fetch activities via useGetActivitiesForReport, 4) For PDF: call the pdfGenerator utility from frontend/src/utils/pdfGenerator.ts with the report and activities, 5) For CSV: call the excelGenerator utility from frontend/src/utils/excelGenerator.ts with an array containing the single report and its activities. Use shadcn/ui Button components with appropriate icons (FileText for PDF, FileSpreadsheet for CSV) and loading states during export generation."
-        },
-        {
-          "path": "frontend/src/utils/pdfGenerator.ts",
-          "operation": "modify",
-          "description": "Review the existing pdfGenerator implementation to ensure it accepts a single report object and its activities array, and verify it handles all activity fields correctly. No structural changes needed if the function signature already matches this requirement; otherwise, ensure the function can be called with (report: Report, activities: Activity[]) parameters."
-        },
-        {
-          "path": "frontend/src/utils/excelGenerator.ts",
-          "operation": "modify",
-          "description": "Review the existing excelGenerator implementation to ensure it can handle exporting a single user's report and activities. The function should accept an array of ReportActivityExport objects. Verify it includes all activity fields in the CSV output with Portuguese headers from the labels utility. No structural changes needed if the function already supports this use case."
+          "description": "If transparency is coming from Tailwind theme configuration (e.g., OKLCH alpha channel in popover/dropdown color variables), update the relevant color definitions to ensure full opacity (alpha = 1). Review the custom theme tokens for popover, dropdown, or overlay-related colors and ensure they are defined without transparency."
         }
       ]
     }

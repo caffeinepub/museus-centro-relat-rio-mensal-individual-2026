@@ -1,24 +1,16 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Project with user activity tracking and reporting features. User requested reinsertion of a monthly report export button per user, including activities, with PDF and CSV/Excel formats, activity data, and month/year selector defaulting to current month.",
+  "summary": "Project involves a system with monthly report export (PDF/CSV) functionality with month/year selector, and UI dropdown/list styling adjustments.",
   "architectural_notes": [],
   "known_issues": [],
-  "isFixRequest": false,
+  "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-add-a-month-year-selector-component-defaulting-to-the-current-month-and-year-that-allows-the-user-to-pick-any-month-before-triggering-the-export-this-selector-should-be-accessible-from-the-report-list-page-or-a-dedicated-export-button-area-visible-to-the-logged-in-user",
-      "title": "Add a month/year selector component (defaulting to the current month and year) that allows the user to pick any month before triggering the export. This selector should be accessible from the report list page or a dedicated export button area visible to the logged-in user.",
+      "id": "feature-remove-transparency-from-all-dropdown-select-lists-throughout-the-application-all-dropdown-menus-select-popover-content-and-suspended-lists-must-have-a-fully-opaque-background-no-transparency-or-backdrop-opacity-this-applies-to-all-select-popover-dropdownmenu-and-similar-overlay-components-used-across-every-page-and-component-in-the-frontend",
+      "title": "Remove transparency from all dropdown/select lists throughout the application. All dropdown menus, select popover content, and suspended lists must have a fully opaque background (no transparency or backdrop opacity). This applies to all Select, Popover, DropdownMenu, and similar overlay components used across every page and component in the frontend.",
       "reqIds": [
         "REQ-1"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-add-an-export-button-on-the-reports-list-page-reportslistpage-that-exports-the-current-user-s-monthly-report-and-all-its-associated-activities-the-export-must-support-two-formats-pdf-using-the-existing-pdfgenerator-utility-and-csv-excel-using-the-existing-excelgenerator-utility-the-exported-data-must-include-all-activity-fields-for-the-selected-month-year",
-      "title": "Add an export button on the reports list page (ReportsListPage) that exports the current user's monthly report and all its associated activities. The export must support two formats: PDF (using the existing pdfGenerator utility) and CSV/Excel (using the existing excelGenerator utility). The exported data must include all activity fields for the selected month/year.",
-      "reqIds": [
-        "REQ-2"
       ],
       "version": 1
     }
@@ -26,13 +18,13 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Reinserir botão de exportar relatório mensal por utilizador com atividades, em PDF e CSV/Excel, com seletor de mês/ano (default: mês atual)",
+      "summary": "Remove transparency from dropdown/suspended lists (make background fully opaque)",
       "reqIds": [],
       "status": "pending"
     }
   ],
   "gameProjectType": "none",
-  "projectName": "Museus Centro Reports",
+  "projectName": "Remove transparency from dropdown lists",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }
