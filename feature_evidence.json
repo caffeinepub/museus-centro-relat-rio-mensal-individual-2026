@@ -2,11 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-create-a-pending-users-section-in-the-user-management-page-or-as-a-dedicated-tab-visible-only-to-coordinators-and-admins-listing-all-users-with-pending-approval-status-with-an-approve-action-button-per-row",
-      "featureTitle": "Create a 'Pending Users' section in the User Management page (or as a dedicated tab) visible only to coordinators and admins, listing all users with pending approval status, with an 'Approve' action button per row.",
+      "featureId": "feature-ensure-that-the-reportformpage-does-not-render-as-read-only-for-coordinator-users-when-accessed-in-create-mode-and-that-the-activityformpage-create-form-is-fully-editable-and-submittable-by-coordinator-users",
+      "featureTitle": "Ensure that the ReportFormPage does not render as read-only for coordinator users when accessed in create mode, and that the ActivityFormPage create form is fully editable and submittable by coordinator users.",
       "files": [
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/UserManagementPage.tsx"
+        "frontend/src/pages/ReportFormPage.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -19,31 +18,7 @@
         "user-approval@3.0.0"
       ],
       "testIds": [
-        "REQ-2"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-ensure-that-users-whose-profiles-are-in-pending-status-cannot-access-protected-pages-and-are-shown-a-your-account-is-awaiting-coordinator-approval-message-after-login",
-      "featureTitle": "Ensure that users whose profiles are in 'pending' status cannot access protected pages and are shown a 'Your account is awaiting coordinator approval' message after login.",
-      "files": [
-        "frontend/src/App.tsx",
-        "frontend/src/components/Sidebar.tsx",
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/PendingApprovalPage.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "user-approval@3.0.0"
-      ],
-      "testIds": [
-        "REQ-3"
+        "REQ-4"
       ],
       "confidence": "high"
     }

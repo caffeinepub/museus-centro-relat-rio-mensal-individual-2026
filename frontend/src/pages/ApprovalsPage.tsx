@@ -1,235 +1,192 @@
 import React, { useState } from 'react';
-import { useGetAllReports, useGetCallerUserProfile } from '../hooks/useQueries';
-import { AppUserRole, MuseumLocation, Report, Status } from '../backend';
-import { statusLabel, getMonthLabel, getMuseumLabel, MUSEUM_LOCATIONS } from '../utils/labels';
-import { Badge } from '@/components/ui/badge';
+import { Search, Filter, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { useAllReports } from '../hooks/useQueries';
+import { Status } from '../backend';
+import type { Report } from '../backend';
+import { statusLabel, getMonthLabel, getMuseumLabel, MUSEUM_LOCATIONS, MONTHS } from '../utils/labels';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, X, ClipboardCheck } from 'lucide-react';
 import ApprovalDetailView from '../components/ApprovalDetailView';
 
-const STATUS_OPTIONS: { value: Status | 'all'; label: string }[] = [
-  { value: 'all', label: 'Todos os status' },
-  { value: Status.draft, label: 'Rascunho' },
-  { value: Status.submitted, label: 'Enviado' },
-  { value: Status.underReview, label: 'Em revisão' },
-  { value: Status.approved, label: 'Aprovado' },
-  { value: Status.analysis, label: 'Em análise' },
-  { value: Status.requiresAdjustment, label: 'Necessita ajustes' },
-];
-
-function getStatusBadgeVariant(status: Status): 'default' | 'secondary' | 'destructive' | 'outline' {
+function getStatusColor(status: Status): string {
   switch (status) {
-    case Status.approved: return 'default';
-    case Status.submitted: return 'secondary';
-    case Status.underReview: return 'outline';
-    case Status.requiresAdjustment: return 'destructive';
-    case Status.analysis: return 'outline';
-    default: return 'secondary';
+    case Status.approved: return 'bg-success/10 text-success border-success/20';
+    case Status.submitted: return 'bg-primary/10 text-primary border-primary/20';
+    case Status.underReview: return 'bg-warning/10 text-warning border-warning/20';
+    case Status.requiresAdjustment: return 'bg-destructive/10 text-destructive border-destructive/20';
+    case Status.draft: return 'bg-muted text-muted-foreground border-border';
+    default: return 'bg-muted text-muted-foreground border-border';
   }
 }
-
-function formatDate(time: bigint | undefined): string {
-  if (!time) return '—';
-  const ms = Number(time) / 1_000_000;
-  return new Date(ms).toLocaleDateString('pt-BR');
-}
-
-const MONTHS = [
-  { value: 'all', label: 'Todos os meses' },
-  { value: 'february', label: 'Fevereiro' },
-  { value: 'march', label: 'Março' },
-  { value: 'april', label: 'Abril' },
-  { value: 'may', label: 'Maio' },
-  { value: 'june', label: 'Junho' },
-  { value: 'july', label: 'Julho' },
-  { value: 'august', label: 'Agosto' },
-  { value: 'september', label: 'Setembro' },
-  { value: 'october', label: 'Outubro' },
-  { value: 'november', label: 'Novembro' },
-];
 
 export default function ApprovalsPage() {
-  const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
-  const { data: reports, isLoading: reportsLoading } = useGetAllReports();
-
+  const { data: reports = [], isLoading } = useAllReports();
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterMonth, setFilterMonth] = useState<string>('all');
-  const [filterMuseum, setFilterMuseum] = useState<string>('all');
-  const [filterProfessional, setFilterProfessional] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [museumFilter, setMuseumFilter] = useState<string>('all');
 
-  const isCoordOrAdmin =
-    userProfile?.appRole === AppUserRole.coordination ||
-    userProfile?.appRole === AppUserRole.administration;
-
-  if (profileLoading) {
-    return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
-
-  if (!isCoordOrAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <ClipboardCheck className="w-12 h-12 text-muted-foreground" />
-        <p className="text-muted-foreground text-lg">Acesso restrito à Coordenação e Administração.</p>
-      </div>
-    );
-  }
+  const filteredReports = reports.filter((report) => {
+    const matchesSearch =
+      !searchTerm ||
+      report.professionalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.protocolNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || report.status === statusFilter;
+    const matchesMonth = monthFilter === 'all' || report.referenceMonth === monthFilter;
+    const matchesMuseum = museumFilter === 'all' || report.mainMuseum === museumFilter;
+    return matchesSearch && matchesStatus && matchesMonth && matchesMuseum;
+  });
 
   if (selectedReport) {
     return (
       <ApprovalDetailView
         report={selectedReport}
-        onBack={() => setSelectedReport(null)}
+        onClose={() => setSelectedReport(null)}
       />
     );
   }
 
-  const filteredReports = (reports ?? []).filter((r) => {
-    if (filterStatus !== 'all' && r.status !== filterStatus) return false;
-    if (filterMonth !== 'all' && r.referenceMonth !== filterMonth) return false;
-    if (filterMuseum !== 'all' && r.mainMuseum !== filterMuseum) return false;
-    if (filterProfessional && !r.professionalName.toLowerCase().includes(filterProfessional.toLowerCase())) return false;
-    return true;
-  });
-
-  const clearFilters = () => {
-    setFilterStatus('all');
-    setFilterMonth('all');
-    setFilterMuseum('all');
-    setFilterProfessional('');
-  };
-
-  const hasActiveFilters =
-    filterStatus !== 'all' ||
-    filterMonth !== 'all' ||
-    filterMuseum !== 'all' ||
-    filterProfessional !== '';
-
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <ClipboardCheck className="w-7 h-7 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Aprovações</h1>
-          <p className="text-sm text-muted-foreground">Revise e aprove os relatórios enviados pelos profissionais</p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-        <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por profissional..."
-              value={filterProfessional}
-              onChange={(e) => setFilterProfessional(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={filterMonth} onValueChange={setFilterMonth}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Mês" />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTHS.map((m) => (
-                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={filterMuseum} onValueChange={setFilterMuseum}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Equipe/Museu" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as equipes</SelectItem>
-              {MUSEUM_LOCATIONS.map((loc) => (
-                <SelectItem key={loc} value={loc}>
-                  {getMuseumLabel(loc)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {hasActiveFilters && (
-            <Button variant="outline" size="sm" onClick={clearFilters} className="gap-2">
-              <X className="w-4 h-4" />
-              Limpar filtros
-            </Button>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          {filteredReports.length} relatório(s) encontrado(s)
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground">Aprovações</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Revise e aprove os relatórios enviados pelos profissionais.
         </p>
       </div>
 
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[
+          {
+            label: 'Aguardando',
+            value: reports.filter((r) => r.status === Status.submitted).length,
+            icon: Clock,
+            color: 'text-primary',
+          },
+          {
+            label: 'Em Revisão',
+            value: reports.filter((r) => r.status === Status.underReview).length,
+            icon: AlertCircle,
+            color: 'text-warning',
+          },
+          {
+            label: 'Aprovados',
+            value: reports.filter((r) => r.status === Status.approved).length,
+            icon: CheckCircle,
+            color: 'text-success',
+          },
+          {
+            label: 'Total',
+            value: reports.length,
+            icon: Filter,
+            color: 'text-foreground',
+          },
+        ].map((stat) => (
+          <div key={stat.label} className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <stat.icon className={`w-4 h-4 ${stat.color}`} />
+              <p className="text-sm text-muted-foreground">{stat.label}</p>
+            </div>
+            <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por profissional ou protocolo..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            {Object.values(Status).map((s) => (
+              <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={monthFilter} onValueChange={setMonthFilter}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Mês" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os meses</SelectItem>
+            {MONTHS.map((m) => (
+              <SelectItem key={m} value={m}>{getMonthLabel(m)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={museumFilter} onValueChange={setMuseumFilter}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Equipe/Museu" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as equipes</SelectItem>
+            {MUSEUM_LOCATIONS.map((m) => (
+              <SelectItem key={m} value={m}>{getMuseumLabel(m)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Reports Table */}
-      {reportsLoading ? (
+      {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
         </div>
       ) : filteredReports.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 gap-3 bg-card border border-border rounded-xl">
-          <ClipboardCheck className="w-10 h-10 text-muted-foreground" />
-          <p className="text-muted-foreground">Nenhum relatório encontrado com os filtros selecionados.</p>
+        <div className="text-center py-16 bg-card border border-border rounded-xl">
+          <CheckCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">Nenhum relatório encontrado</h3>
+          <p className="text-muted-foreground">
+            {reports.length === 0
+              ? 'Nenhum relatório foi enviado ainda.'
+              : 'Nenhum relatório corresponde aos filtros selecionados.'}
+          </p>
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 border-b border-border">
-              <tr>
-                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Profissional</th>
-                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Mês de Referência</th>
-                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Equipe/Museu</th>
-                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Status</th>
-                <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Data de Envio</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredReports.map((report, idx) => (
-                <tr
-                  key={report.id}
-                  className={`cursor-pointer hover:bg-muted/40 transition-colors border-b border-border last:border-0 ${idx % 2 === 0 ? '' : 'bg-muted/20'}`}
-                  onClick={() => setSelectedReport(report)}
-                >
-                  <td className="px-4 py-3 font-medium text-foreground">{report.professionalName}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {getMonthLabel(report.referenceMonth as string)} / {String(report.year)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {getMuseumLabel(report.mainMuseum as MuseumLocation)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={getStatusBadgeVariant(report.status as Status)}>
-                      {statusLabel(report.status as Status)}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{formatDate(report.submittedAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="divide-y divide-border">
+            {filteredReports.map((report) => (
+              <div
+                key={report.id}
+                onClick={() => setSelectedReport(report)}
+                className="p-4 hover:bg-muted/30 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs text-muted-foreground font-mono">{report.protocolNumber}</span>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(report.status)}`}
+                      >
+                        {statusLabel(report.status)}
+                      </span>
+                    </div>
+                    <p className="font-medium text-foreground">{report.professionalName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {getMonthLabel(report.referenceMonth)} / {report.year.toString()} · {getMuseumLabel(report.mainMuseum)}
+                    </p>
+                  </div>
+                  <div className="text-muted-foreground text-sm shrink-0">
+                    Clique para revisar →
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

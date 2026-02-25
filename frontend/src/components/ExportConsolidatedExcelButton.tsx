@@ -3,14 +3,14 @@ import { Button } from '@/components/ui/button';
 import { FileSpreadsheet, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateExcelExport } from '../utils/excelGenerator';
-import { useGetAllReports, useGetAllActivities, useGetCallerUserProfile } from '../hooks/useQueries';
+import { useAllReports, useAllActivities, useGetCallerUserProfile } from '../hooks/useQueries';
 import { AppUserRole, Activity } from '../backend';
 
 export default function ExportConsolidatedExcelButton() {
   const [isGenerating, setIsGenerating] = useState(false);
   const { data: userProfile } = useGetCallerUserProfile();
-  const { data: reports } = useGetAllReports();
-  const { data: activities } = useGetAllActivities();
+  const { data: reports } = useAllReports();
+  const { data: activities } = useAllActivities();
 
   const isAdmin = userProfile?.appRole === AppUserRole.administration;
   if (!isAdmin) return null;
@@ -33,7 +33,7 @@ export default function ExportConsolidatedExcelButton() {
 
       generateExcelExport(reports, activitiesByReport);
       toast.success('Arquivo CSV gerado com sucesso! Abra no Excel.');
-    } catch (err) {
+    } catch {
       toast.error('Erro ao gerar arquivo. Tente novamente.');
     } finally {
       setIsGenerating(false);

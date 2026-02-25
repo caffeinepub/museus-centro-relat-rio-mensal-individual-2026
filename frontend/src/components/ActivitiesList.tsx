@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { useGetActivitiesForReport } from '../hooks/useQueries';
+import { useActivitiesForReport } from '../hooks/useQueries';
 import { Activity, ActivityStatus, Classification } from '../backend';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -58,7 +58,7 @@ function hoursDisplay(activity: Activity): string {
 
 export default function ActivitiesList({ reportId, canEdit = true }: ActivitiesListProps) {
   const navigate = useNavigate();
-  const { data: activities, isLoading } = useGetActivitiesForReport(reportId);
+  const { data: activities, isLoading } = useActivitiesForReport(reportId);
 
   if (isLoading) {
     return (
@@ -143,7 +143,7 @@ export default function ActivitiesList({ reportId, canEdit = true }: ActivitiesL
                         size="icon"
                         className="h-8 w-8"
                         onClick={() =>
-                          navigate({ to: `/reports/${reportId}/activities/${activity.id}/edit` })
+                          navigate({ to: `/reports/${reportId}/activities/${activity.id}` })
                         }
                       >
                         <Pencil className="h-4 w-4" />

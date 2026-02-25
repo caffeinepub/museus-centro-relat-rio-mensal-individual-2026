@@ -6,249 +6,162 @@ import {
   RouterProvider,
   Outlet,
 } from '@tanstack/react-router';
-import { QueryClient, QueryClientProvider, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ThemeProvider } from 'next-themes';
-import { Toaster } from '@/components/ui/sonner';
 import { useInternetIdentity } from './hooks/useInternetIdentity';
 import { useGetCallerUserProfile, useIsCallerApproved } from './hooks/useQueries';
-import { AppUserRole, MuseumLocation } from './backend';
-import type { UserProfile } from './backend';
-import { useActor } from './hooks/useActor';
+import { AppUserRole } from './backend';
 import Sidebar from './components/Sidebar';
+import ProfileSetupModal from './components/ProfileSetupModal';
+import PendingApprovalPage from './pages/PendingApprovalPage';
 import ReportsListPage from './pages/ReportsListPage';
 import ReportFormPage from './pages/ReportFormPage';
 import ActivityFormPage from './pages/ActivityFormPage';
 import DashboardPage from './pages/DashboardPage';
 import ApprovalsPage from './pages/ApprovalsPage';
-import ConsolidatedMuseumPage from './pages/ConsolidatedMuseumPage';
 import UserManagementPage from './pages/UserManagementPage';
-import PendingApprovalPage from './pages/PendingApprovalPage';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building2 } from 'lucide-react';
+import ConsolidatedMuseumPage from './pages/ConsolidatedMuseumPage';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1,
-    },
-  },
-});
-
-// ── Profile Setup Modal ────────────────────────────────────────────────────
-
-function ProfileSetupModal({ onSave }: { onSave: (name: string, role: AppUserRole) => void }) {
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<AppUserRole>(AppUserRole.professional);
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setSaving(true);
-    await onSave(name.trim(), role);
-    setSaving(false);
-  };
+// ── Login Page ─────────────────────────────────────────────────────────────
+function LoginPage() {
+  const { login, loginStatus } = useInternetIdentity();
+  const isLoggingIn = loginStatus === 'logging-in';
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl p-8 w-full max-w-md shadow-xl">
-        <div className="flex items-center gap-3 mb-6">
-          <Building2 className="w-8 h-8 text-primary" />
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Bem-vindo!</h2>
-            <p className="text-sm text-muted-foreground">Configure seu perfil para continuar</p>
-          </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
+        <img
+          src="/assets/generated/museus-centro-logo.dim_256x256.png"
+          alt="Museus Centro Logo"
+          className="w-32 h-32 object-contain"
+        />
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Museus Centro</h1>
+          <p className="text-muted-foreground">Sistema de Gestão de Relatórios</p>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Seu nome completo</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Digite seu nome..."
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="role">Função</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as AppUserRole)}>
-              <SelectTrigger id="role">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={AppUserRole.professional}>Profissional</SelectItem>
-                <SelectItem value={AppUserRole.coordination}>Coordenação</SelectItem>
-                <SelectItem value={AppUserRole.administration}>Administração</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button type="submit" className="w-full" disabled={saving || !name.trim()}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-            Salvar perfil
-          </Button>
-        </form>
+        <div className="w-full bg-card border border-border rounded-xl p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-foreground mb-4 text-center">Entrar no Sistema</h2>
+          <p className="text-sm text-muted-foreground mb-6 text-center">
+            Faça login com sua identidade digital para acessar o sistema de relatórios.
+          </p>
+          <button
+            onClick={login}
+            disabled={isLoggingIn}
+            className="w-full py-3 px-6 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoggingIn ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Entrando...
+              </span>
+            ) : (
+              'Entrar'
+            )}
+          </button>
+        </div>
+        <footer className="text-center text-xs text-muted-foreground mt-4">
+          <p>
+            Feito com ❤️ usando{' '}
+            <a
+              href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground"
+            >
+              caffeine.ai
+            </a>
+          </p>
+          <p className="mt-1">© {new Date().getFullYear()} Museus Centro</p>
+        </footer>
       </div>
     </div>
   );
 }
 
-// ── Save profile hook ──────────────────────────────────────────────────────
+// ── Index Page (role-based redirect) ──────────────────────────────────────
+function IndexPage() {
+  const { identity } = useInternetIdentity();
+  const { data: userProfile } = useGetCallerUserProfile();
 
-function useSaveCallerUserProfileMutation() {
-  const { actor } = useActor();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (profile: UserProfile) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.saveCallerUserProfile(profile);
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      qc.invalidateQueries({ queryKey: ['isCallerApproved'] });
-    },
-  });
-}
-
-// ── App Layout ─────────────────────────────────────────────────────────────
-
-function AppLayout() {
-  const { identity, isInitializing, login, loginStatus } = useInternetIdentity();
-  const {
-    data: userProfile,
-    isLoading: profileLoading,
-    isFetched: profileFetched,
-  } = useGetCallerUserProfile();
-  const {
-    data: isApproved,
-    isLoading: approvalLoading,
-    isFetched: approvalFetched,
-  } = useIsCallerApproved();
-
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { mutateAsync: saveProfile } = useSaveCallerUserProfileMutation();
-
-  const isAuthenticated = !!identity;
-  const isLoggingIn = loginStatus === 'logging-in';
-
-  // Show profile setup modal when user is authenticated but has no profile yet
-  const showProfileSetup = isAuthenticated && !profileLoading && profileFetched && userProfile === null;
-
-  // Determine if user is a coordinator or admin (they bypass approval gate)
   const isCoordOrAdmin =
     userProfile?.appRole === AppUserRole.coordination ||
     userProfile?.appRole === AppUserRole.administration;
 
-  // Show pending approval screen when:
-  // - user is authenticated
-  // - profile is loaded and exists (setup is done)
-  // - approval status is fetched and user is NOT approved
-  // - user is not a coordinator/admin (they are always approved)
-  const showPendingApproval =
-    isAuthenticated &&
-    !profileLoading &&
-    profileFetched &&
-    userProfile !== null &&
-    !showProfileSetup &&
-    approvalFetched &&
-    !approvalLoading &&
-    isApproved === false &&
-    !isCoordOrAdmin;
+  if (!identity) return <LoginPage />;
+  if (isCoordOrAdmin) return <DashboardPage />;
+  return <ReportsListPage />;
+}
 
-  if (isInitializing) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+// ── App Shell (authenticated) ──────────────────────────────────────────────
+function AppShell() {
+  const { identity } = useInternetIdentity();
+  const { data: userProfile, isLoading: profileLoading, isFetched: profileFetched } = useGetCallerUserProfile();
+  const { data: isApproved, isLoading: approvalLoading } = useIsCallerApproved();
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
+
+  const isAuthenticated = !!identity;
+  const isCoordination = userProfile?.appRole === AppUserRole.coordination;
+  const isAdministration = userProfile?.appRole === AppUserRole.administration;
+  const isCoordOrAdmin = isCoordination || isAdministration;
+
+  // Show profile setup modal when profile is not set
+  useEffect(() => {
+    if (isAuthenticated && profileFetched && userProfile === null) {
+      setShowProfileSetup(true);
+    } else if (userProfile !== null && userProfile !== undefined) {
+      setShowProfileSetup(false);
+    }
+  }, [isAuthenticated, profileFetched, userProfile]);
 
   if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
+  // Loading state
+  if (profileLoading || approvalLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <div className="bg-card border border-border rounded-2xl p-10 w-full max-w-sm shadow-xl text-center space-y-6">
-          <img
-            src="/assets/generated/museus-centro-logo.dim_256x256.png"
-            alt="Museus Centro"
-            className="w-20 h-20 rounded-2xl mx-auto"
-          />
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Museus Centro</h1>
-            <p className="text-sm text-muted-foreground mt-1">Sistema de Relatórios Mensais</p>
-          </div>
-          <Button
-            onClick={login}
-            disabled={isLoggingIn}
-            className="w-full"
-            size="lg"
-          >
-            {isLoggingIn ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Entrando...
-              </>
-            ) : (
-              'Entrar'
-            )}
-          </Button>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <svg className="animate-spin h-8 w-8 text-primary" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
     );
   }
 
-  // Show pending approval page (full screen, no sidebar)
-  if (showPendingApproval) {
+  // Profile setup — ProfileSetupModal manages its own open state via Dialog open={true}
+  if (showProfileSetup) {
+    return <ProfileSetupModal />;
+  }
+
+  // Pending approval (non-coordinator/admin users who are not approved)
+  if (!isCoordOrAdmin && isApproved === false) {
     return <PendingApprovalPage />;
   }
 
-  const handleSaveProfile = async (name: string, role: AppUserRole) => {
-    await saveProfile({ name, appRole: role, museum: MuseumLocation.equipePrincipal });
-  };
-
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((c) => !c)}
-        isApproved={isApproved ?? false}
-      />
-      <main className="flex-1 overflow-y-auto">
+      <Sidebar isApproved={isApproved ?? false} />
+      <main className="flex-1 overflow-auto">
         <Outlet />
-        {showProfileSetup && (
-          <ProfileSetupModal onSave={handleSaveProfile} />
-        )}
       </main>
     </div>
   );
 }
 
-// ── Index redirect component ───────────────────────────────────────────────
-
-function IndexRedirect() {
-  useEffect(() => {
-    window.location.replace('/reports');
-  }, []);
-  return (
-    <div className="flex items-center justify-center h-screen bg-background">
-      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-    </div>
-  );
-}
-
 // ── Routes ─────────────────────────────────────────────────────────────────
-
 const rootRoute = createRootRoute({
-  component: AppLayout,
+  component: AppShell,
 });
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: IndexRedirect,
+  component: IndexPage,
 });
 
 const reportsRoute = createRoute({
@@ -265,7 +178,7 @@ const newReportRoute = createRoute({
 
 const editReportRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/reports/$reportId/edit',
+  path: '/reports/$reportId',
   component: ReportFormPage,
 });
 
@@ -277,7 +190,7 @@ const newActivityRoute = createRoute({
 
 const editActivityRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/reports/$reportId/activities/$activityId/edit',
+  path: '/reports/$reportId/activities/$activityId',
   component: ActivityFormPage,
 });
 
@@ -293,16 +206,16 @@ const approvalsRoute = createRoute({
   component: ApprovalsPage,
 });
 
-const consolidatedRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/consolidated-museum',
-  component: ConsolidatedMuseumPage,
-});
-
-const usersRoute = createRoute({
+const userManagementRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/users',
   component: UserManagementPage,
+});
+
+const consolidatedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/consolidated',
+  component: ConsolidatedMuseumPage,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -314,21 +227,18 @@ const routeTree = rootRoute.addChildren([
   editActivityRoute,
   dashboardRoute,
   approvalsRoute,
+  userManagementRoute,
   consolidatedRoute,
-  usersRoute,
 ]);
 
 const router = createRouter({ routeTree });
 
-// ── Root App ───────────────────────────────────────────────────────────────
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
 
 export default function App() {
-  return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-        <Toaster />
-      </QueryClientProvider>
-    </ThemeProvider>
-  );
+  return <RouterProvider router={router} />;
 }

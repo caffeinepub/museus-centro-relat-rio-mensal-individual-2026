@@ -1,18 +1,21 @@
 import React, { useRef, useState } from 'react';
-import { Report, Status, ExternalBlob } from '../backend';
-import { useGetActivitiesForReport, useReviewReport } from '../hooks/useQueries';
-import { statusLabel, monthLabel } from '../utils/labels';
+import { ArrowLeft, CheckCircle, RotateCcw, Loader2 } from 'lucide-react';
+import { useActivitiesForReport, useReviewReport } from '../hooks/useQueries';
+import { statusLabel, monthLabel, getMuseumLabel } from '../utils/labels';
+import { Status, ExternalBlob } from '../backend';
+import type { Report } from '../backend';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, CheckCircle, RotateCcw, Loader2 } from 'lucide-react';
-import SignatureCanvas, { SignatureCanvasHandle } from './SignatureCanvas';
+import { toast } from 'sonner';
+import SignatureCanvas from './SignatureCanvas';
+import type { SignatureCanvasHandle } from './SignatureCanvas';
 import ActivitiesList from './ActivitiesList';
 
 interface ApprovalDetailViewProps {
   report: Report;
-  onBack: () => void;
+  onClose: () => void;
 }
 
 function getStatusBadgeVariant(status: Status): 'default' | 'secondary' | 'destructive' | 'outline' {
@@ -32,44 +35,57 @@ function formatDate(time: bigint | undefined): string {
   return new Date(ms).toLocaleDateString('pt-BR');
 }
 
-export default function ApprovalDetailView({ report, onBack }: ApprovalDetailViewProps) {
-  const { data: activities, isLoading: activitiesLoading } = useGetActivitiesForReport(report.id);
+export default function ApprovalDetailView({ report, onClose }: ApprovalDetailViewProps) {
+  const { data: activities, isLoading: activitiesLoading } = useActivitiesForReport(report.id);
   const reviewReport = useReviewReport();
+  const signatureRef = useRef<SignatureCanvasHandle>(null);
 
   const [comments, setComments] = useState(report.coordinatorComments ?? '');
   const [signatureCaptured, setSignatureCaptured] = useState(false);
-  const signatureRef = useRef<SignatureCanvasHandle>(null);
 
   const handleReturnForRevision = async () => {
-    await reviewReport.mutateAsync({
-      reportId: report.id,
-      newStatus: Status.underReview,
-      comments: comments || null,
-      signature: null,
-    });
-    onBack();
+    try {
+      await reviewReport.mutateAsync({
+        reportId: report.id,
+        newStatus: Status.underReview,
+        comments: comments || null,
+        signature: null,
+      });
+      toast.success('Relatório devolvido para revisão.');
+      onClose();
+    } catch {
+      toast.error('Erro ao devolver relatório. Tente novamente.');
+    }
   };
 
   const handleApprove = async () => {
     const sigBase64 = signatureRef.current?.getSignatureBase64();
-    if (!sigBase64) return;
-
-    // Convert base64 to ExternalBlob
-    const base64Data = sigBase64.replace(/^data:image\/\w+;base64,/, '');
-    const binaryStr = atob(base64Data);
-    const bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i);
+    if (!sigBase64) {
+      toast.error('Por favor, assine antes de aprovar.');
+      return;
     }
-    const blob = ExternalBlob.fromBytes(bytes);
 
-    await reviewReport.mutateAsync({
-      reportId: report.id,
-      newStatus: Status.approved,
-      comments: comments || null,
-      signature: blob,
-    });
-    onBack();
+    try {
+      // Convert base64 data URL to ExternalBlob
+      const base64Data = sigBase64.replace(/^data:image\/\w+;base64,/, '');
+      const binaryStr = atob(base64Data);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      const blob = ExternalBlob.fromBytes(bytes);
+
+      await reviewReport.mutateAsync({
+        reportId: report.id,
+        newStatus: Status.approved,
+        comments: comments || null,
+        signature: blob,
+      });
+      toast.success('Relatório aprovado com sucesso!');
+      onClose();
+    } catch {
+      toast.error('Erro ao aprovar relatório. Tente novamente.');
+    }
   };
 
   const isLoading = reviewReport.isPending;
@@ -78,7 +94,7 @@ export default function ApprovalDetailView({ report, onBack }: ApprovalDetailVie
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack} disabled={isLoading}>
+        <Button variant="ghost" size="icon" onClick={onClose} disabled={isLoading}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="flex-1">
@@ -109,8 +125,8 @@ export default function ApprovalDetailView({ report, onBack }: ApprovalDetailVie
             </p>
           </div>
           <div>
-            <span className="text-muted-foreground">Museu Principal:</span>
-            <p className="font-medium text-foreground">{report.mainMuseum}</p>
+            <span className="text-muted-foreground">Equipe/Museu Principal:</span>
+            <p className="font-medium text-foreground">{getMuseumLabel(report.mainMuseum)}</p>
           </div>
           {report.workedAtOtherMuseum && report.otherMuseum && (
             <div>
@@ -152,7 +168,7 @@ export default function ApprovalDetailView({ report, onBack }: ApprovalDetailVie
         </div>
       </div>
 
-      {/* Activities — ActivitiesList fetches its own data by reportId */}
+      {/* Activities */}
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <h2 className="font-semibold text-foreground text-lg">
           Atividades {activitiesLoading ? '' : `(${activities?.length ?? 0})`}
@@ -187,27 +203,35 @@ export default function ApprovalDetailView({ report, onBack }: ApprovalDetailVie
         </p>
         <SignatureCanvas
           ref={signatureRef}
-          onSignatureChange={(hasSignature) => setSignatureCaptured(hasSignature)}
+          onSignatureChange={(isEmpty) => setSignatureCaptured(!isEmpty)}
         />
       </div>
 
       {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3 justify-end">
+      <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Button
           variant="outline"
+          className="flex-1 gap-2 border-warning text-warning hover:bg-warning/10"
           onClick={handleReturnForRevision}
           disabled={isLoading}
-          className="gap-2"
         >
-          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RotateCcw className="w-4 h-4" />
+          )}
           Devolver para Revisão
         </Button>
         <Button
+          className="flex-1 gap-2 bg-success hover:bg-success/90 text-white"
           onClick={handleApprove}
           disabled={isLoading || !signatureCaptured}
-          className="gap-2"
         >
-          {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <CheckCircle className="w-4 h-4" />
+          )}
           Aprovar Relatório
         </Button>
       </div>

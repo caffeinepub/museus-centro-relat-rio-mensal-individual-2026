@@ -1,24 +1,18 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "App with user management features, including a coordinator approval flow for new users.",
-  "architectural_notes": [],
+  "summary": "Project with user approval flows, report creation/editing, PDF printing, and coordinator role management.",
+  "architectural_notes": [
+    "Roles include at least: coordinator, with access controls for report creation and activity insertion"
+  ],
   "known_issues": [],
   "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-create-a-pending-users-section-in-the-user-management-page-or-as-a-dedicated-tab-visible-only-to-coordinators-and-admins-listing-all-users-with-pending-approval-status-with-an-approve-action-button-per-row",
-      "title": "Create a 'Pending Users' section in the User Management page (or as a dedicated tab) visible only to coordinators and admins, listing all users with pending approval status, with an 'Approve' action button per row.",
+      "id": "feature-ensure-that-the-reportformpage-does-not-render-as-read-only-for-coordinator-users-when-accessed-in-create-mode-and-that-the-activityformpage-create-form-is-fully-editable-and-submittable-by-coordinator-users",
+      "title": "Ensure that the ReportFormPage does not render as read-only for coordinator users when accessed in create mode, and that the ActivityFormPage create form is fully editable and submittable by coordinator users.",
       "reqIds": [
-        "REQ-2"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-ensure-that-users-whose-profiles-are-in-pending-status-cannot-access-protected-pages-and-are-shown-a-your-account-is-awaiting-coordinator-approval-message-after-login",
-      "title": "Ensure that users whose profiles are in 'pending' status cannot access protected pages and are shown a 'Your account is awaiting coordinator approval' message after login.",
-      "reqIds": [
-        "REQ-3"
+        "REQ-4"
       ],
       "version": 1
     }
@@ -26,15 +20,31 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Coordinator can approve new users",
+      "summary": "Add coordinator role access to create reports and insert activities",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Add a backend function that allows a coordinator (or admin) to approve a pending user profile, transitioning its status from 'pending' to 'approved' so the user gains access to the application.",
+      "summary": "Update the backend authorization logic so that users with the 'coordination' (coordinator) role are permitted to call the createReport (or equivalent) function, in addition to the roles that already have this permission.",
       "reqIds": [
         "REQ-1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Update the backend authorization logic so that users with the 'coordination' (coordinator) role are permitted to call the createActivity (or equivalent) function, in addition to the roles that already have this permission.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Update the frontend Sidebar navigation so that the coordinator role sees menu items for creating reports (e.g., link to ReportFormPage in create mode) and inserting activities (e.g., link or access to ActivityFormPage), if those links are currently hidden or disabled for coordinators.",
+      "reqIds": [
+        "REQ-3"
       ],
       "status": "pending"
     }

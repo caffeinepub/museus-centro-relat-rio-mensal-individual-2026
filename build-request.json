@@ -1,76 +1,88 @@
 {
   "kind": "build_request",
-  "title": "Coordinator approval flow for new users",
+  "title": "Grant Coordinator Role Access to Create Reports and Insert Activities",
   "projectName": "Museus Centro",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Add a backend function that allows a coordinator (or admin) to approve a pending user profile, transitioning its status from 'pending' to 'approved' so the user gains access to the application.",
+      "text": "Update the backend authorization logic so that users with the 'coordination' (coordinator) role are permitted to call the createReport (or equivalent) function, in addition to the roles that already have this permission.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-7"
         ],
         "quotes": [
-          "crie funcao para coordenaco aprovar novos usuarios"
+          "adicione ao coordenador o acesso a criar relatório e inserir atividades"
         ]
       },
       "acceptanceCriteria": [
-        "A new public function (e.g., approveUser) accepts a user principal and updates that user's profile status to approved.",
-        "Only callers with the 'coordination' or 'administration' role can invoke this function; others receive an #unauthorized error.",
-        "Attempting to approve an already-approved user returns a descriptive error.",
-        "Attempting to approve a non-existent user returns a descriptive error."
+        "A user with the coordinator role can successfully create a new report via the backend without receiving an authorization error.",
+        "Existing roles that could already create reports continue to work without regression."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Create a 'Pending Users' section in the User Management page (or as a dedicated tab) visible only to coordinators and admins, listing all users with pending approval status, with an 'Approve' action button per row.",
-      "target": "frontend",
+      "text": "Update the backend authorization logic so that users with the 'coordination' (coordinator) role are permitted to call the createActivity (or equivalent) function, in addition to the roles that already have this permission.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-7"
         ],
         "quotes": [
-          "crie funcao para coordenaco aprovar novos usuarios"
+          "adicione ao coordenador o acesso a criar relatório e inserir atividades"
         ]
       },
       "acceptanceCriteria": [
-        "The section is only rendered for users with 'coordination' or 'administration' role.",
-        "Each row displays the pending user's name, role, museum, and registration date.",
-        "Clicking 'Approve' calls the approveUser backend function via a React Query mutation and shows a success or error toast.",
-        "After a successful approval, the user disappears from the pending list and appears in the active users list.",
-        "If there are no pending users, a friendly empty-state message is displayed."
+        "A user with the coordinator role can successfully insert a new activity into a report via the backend without receiving an authorization error.",
+        "Existing roles that could already insert activities continue to work without regression."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Ensure that users whose profiles are in 'pending' status cannot access protected pages and are shown a 'Your account is awaiting coordinator approval' message after login.",
+      "text": "Update the frontend Sidebar navigation so that the coordinator role sees menu items for creating reports (e.g., link to ReportFormPage in create mode) and inserting activities (e.g., link or access to ActivityFormPage), if those links are currently hidden or disabled for coordinators.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-7"
         ],
         "quotes": [
-          "crie funcao para coordenaco aprovar novos usuarios"
+          "adicione ao coordenador o acesso a criar relatório e inserir atividades"
         ]
       },
       "acceptanceCriteria": [
-        "After a new user completes profile setup, if their status is pending, they are redirected to or shown a pending-approval screen instead of the main dashboard.",
-        "The pending-approval screen displays a clear message indicating they must wait for coordinator approval.",
-        "Once approved, the user can log in and access the application normally."
+        "When logged in as a coordinator, the Sidebar displays the navigation option to create a new report.",
+        "When logged in as a coordinator and viewing a report, the option to add a new activity is visible and functional.",
+        "No navigation items are broken for other roles."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Ensure that the ReportFormPage does not render as read-only for coordinator users when accessed in create mode, and that the ActivityFormPage create form is fully editable and submittable by coordinator users.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-7"
+        ],
+        "quotes": [
+          "adicione ao coordenador o acesso a criar relatório e inserir atividades"
+        ]
+      },
+      "acceptanceCriteria": [
+        "A coordinator user can fill out and submit the report creation form without fields being disabled or the form being read-only.",
+        "A coordinator user can fill out and submit the activity creation form without fields being disabled.",
+        "Role-based read-only logic in ReportFormPage does not block coordinators in create mode."
       ]
     }
   ],
   "constraints": [
-    "Do not change the existing user role hierarchy (professional, coordination, administration).",
-    "All Motoko logic must remain in backend/main.mo (single-actor architecture).",
-    "Do not modify any files under frontend/src/hooks/ or frontend/src/components/ui."
+    "Do not remove or reduce any existing permissions for other roles (professional, administration).",
+    "The coordinator role must not gain access to admin-only features such as user management or consolidated Excel export."
   ],
   "nonGoals": [
-    "Email or push notifications to the coordinator when a new user registers.",
-    "Bulk approval of multiple users at once.",
-    "A dedicated rejection/denial flow with reasons (approval only for now)."
+    "Changing the coordinator's ability to approve/reject reports (already in scope for that role).",
+    "Modifying the user approval workflow or admin-only features.",
+    "Adding new roles or changing the role model structure."
   ],
   "imageRequirements": {
     "required": [],

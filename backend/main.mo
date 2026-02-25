@@ -428,7 +428,7 @@ actor {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       return false;
     };
-    caller == ownerPrincipal;
+    caller == ownerPrincipal or isCoordination(caller);
   };
 
   // ── User profile endpoints (required by frontend) ──────────────────────────
@@ -1210,3 +1210,4 @@ actor {
     };
   };
 };
+

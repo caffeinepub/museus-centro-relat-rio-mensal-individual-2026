@@ -1,970 +1,755 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from '@tanstack/react-router';
-import { useGetActivity, useCreateActivity, useUpdateActivity } from '../hooks/useQueries';
+import { useParams, useNavigate } from '@tanstack/react-router';
+import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
+import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import {
+  useGetCallerUserProfile,
+  useActivity,
+  useCreateActivity,
+  useUpdateActivity,
+} from '../hooks/useQueries';
 import {
   Activity,
   ActivityStatus,
   Classification,
-  GoalStatus,
   AccessibilityOption,
   EvidenceType,
   ProductRealised,
   Quantity,
   AudienceRange,
+  GoalStatus,
   MuseumLocation,
 } from '../backend';
+import { getMuseumLabel, MUSEUM_LOCATIONS } from '../utils/labels';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, ArrowLeft, Save } from 'lucide-react';
-import { getMuseumLabel, MUSEUM_LOCATIONS } from '../utils/labels';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 
-interface ActivityFormData {
-  date: string;
-  museum: MuseumLocation | '';
-  actionType: string;
-  activityName: string;
-  dedicatedHours: string;
-  hoursNotApplicable: boolean;
-  classification: Classification;
-  goalNumber: string;
-  goalDescription: string;
-  plannedIndicator: string;
-  quantitativeGoal: string;
-  achievedResult: string;
-  contributionPercent: string;
-  goalStatus: GoalStatus | '';
-  technicalJustification: string;
-  totalAudience: string;
-  children: string;
-  youth: string;
-  adults: string;
-  elderly: string;
-  pcd: string;
-  accessibilityOptions: AccessibilityOption[];
-  hadPartnership: boolean;
-  partnerName: string;
-  partnerType: string;
-  objective: string;
-  executedDescription: string;
-  achievedResults: string;
-  qualitativeAssessment: string;
-  evidences: EvidenceType[];
-  attachmentsPrefix: string;
-  productRealised: ProductRealised;
-  quantity: Quantity | '';
-  audienceRange: AudienceRange;
-  partnershipsInvolved: string;
-  status: ActivityStatus;
-  cancellationReason: string;
-}
-
-const defaultFormData: ActivityFormData = {
-  date: new Date().toISOString().split('T')[0],
-  museum: '',
-  actionType: '',
-  activityName: '',
-  dedicatedHours: '',
-  hoursNotApplicable: false,
-  classification: Classification.routine,
-  goalNumber: '',
-  goalDescription: '',
-  plannedIndicator: '',
-  quantitativeGoal: '',
-  achievedResult: '',
-  contributionPercent: '',
-  goalStatus: '',
-  technicalJustification: '',
-  totalAudience: '0',
-  children: '0',
-  youth: '0',
-  adults: '0',
-  elderly: '0',
-  pcd: '0',
-  accessibilityOptions: [AccessibilityOption.none],
-  hadPartnership: false,
-  partnerName: '',
-  partnerType: '',
-  objective: '',
-  executedDescription: '',
-  achievedResults: '',
-  qualitativeAssessment: '',
-  evidences: [],
-  attachmentsPrefix: '',
-  productRealised: ProductRealised.naoSeAplica,
-  quantity: '',
-  audienceRange: AudienceRange.naoSeAplica,
-  partnershipsInvolved: '',
-  status: ActivityStatus.notStarted,
-  cancellationReason: '',
+const ACTIVITY_STATUS_LABELS: Record<ActivityStatus, string> = {
+  [ActivityStatus.notStarted]: 'Não Iniciada',
+  [ActivityStatus.submitted]: 'Submetida',
+  [ActivityStatus.completed]: 'Concluída',
+  [ActivityStatus.rescheduled]: 'Reagendada',
+  [ActivityStatus.cancelled]: 'Cancelada',
 };
 
-function dateToTimestamp(dateStr: string): bigint {
-  return BigInt(new Date(dateStr).getTime()) * BigInt(1_000_000);
-}
+const CLASSIFICATION_LABELS: Record<Classification, string> = {
+  [Classification.goalLinked]: 'Vinculada à Meta',
+  [Classification.routine]: 'Rotina',
+  [Classification.extra]: 'Extra',
+};
 
-function timestampToDate(ts: bigint): string {
-  const ms = Number(ts) / 1_000_000;
-  return new Date(ms).toISOString().split('T')[0];
+const PRODUCT_REALISED_LABELS: Record<ProductRealised, string> = {
+  [ProductRealised.oficinaRealizada]: 'Oficina Realizada',
+  [ProductRealised.relatorioEntregue]: 'Relatório Entregue',
+  [ProductRealised.exposicaoMontada]: 'Exposição Montada',
+  [ProductRealised.eventoExecutado]: 'Evento Executado',
+  [ProductRealised.planoDeAcaoElaborado]: 'Plano de Ação Elaborado',
+  [ProductRealised.materialGraficoProduzido]: 'Material Gráfico Produzido',
+  [ProductRealised.conteudoDigitalPublicado]: 'Conteúdo Digital Publicado',
+  [ProductRealised.pesquisaConcluida]: 'Pesquisa Concluída',
+  [ProductRealised.reuniaoRegistrada]: 'Reunião Registrada',
+  [ProductRealised.naoSeAplica]: 'Não se Aplica',
+  [ProductRealised.outro]: 'Outro',
+};
+
+const QUANTITY_LABELS: Record<Quantity, string> = {
+  [Quantity.one]: '1',
+  [Quantity.two]: '2',
+  [Quantity.three]: '3',
+  [Quantity.four]: '4',
+  [Quantity.five]: '5',
+  [Quantity.six]: '6',
+  [Quantity.seven]: '7',
+  [Quantity.eight]: '8',
+  [Quantity.nine]: '9',
+  [Quantity.ten]: '10',
+  [Quantity.maisDeDez]: 'Mais de 10',
+};
+
+const AUDIENCE_RANGE_LABELS: Record<AudienceRange, string> = {
+  [AudienceRange.zeroToTwenty]: '0 a 20',
+  [AudienceRange.twentyOneToFifty]: '21 a 50',
+  [AudienceRange.fiftyOneToHundred]: '51 a 100',
+  [AudienceRange.hundredOneToTwoHundred]: '101 a 200',
+  [AudienceRange.twoHundredOneToFiveHundred]: '201 a 500',
+  [AudienceRange.aboveFiveHundred]: 'Acima de 500',
+  [AudienceRange.naoSeAplica]: 'Não se Aplica',
+};
+
+const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
+  [GoalStatus.inProgress]: 'Em Andamento',
+  [GoalStatus.partiallyCumplied]: 'Parcialmente Cumprida',
+  [GoalStatus.achieved]: 'Alcançada',
+  [GoalStatus.exceeded]: 'Superada',
+};
+
+const ACCESSIBILITY_LABELS: Record<AccessibilityOption, string> = {
+  [AccessibilityOption.none]: 'Nenhuma',
+  [AccessibilityOption.libras]: 'Libras',
+  [AccessibilityOption.audioDescription]: 'Audiodescrição',
+  [AccessibilityOption.tactileMaterial]: 'Material Tátil',
+  [AccessibilityOption.other]: 'Outro',
+};
+
+const EVIDENCE_LABELS: Record<EvidenceType, string> = {
+  [EvidenceType.photos]: 'Fotos',
+  [EvidenceType.attendanceList]: 'Lista de Presença',
+  [EvidenceType.report]: 'Relatório',
+  [EvidenceType.graphicMaterial]: 'Material Gráfico',
+  [EvidenceType.other]: 'Outro',
+};
+
+function emptyActivity(reportId: string, museum: MuseumLocation): Activity {
+  return {
+    id: '',
+    reportId,
+    date: BigInt(Date.now()) * BigInt(1_000_000),
+    museum,
+    actionType: '',
+    activityName: '',
+    dedicatedHours: undefined,
+    hoursNotApplicable: false,
+    classification: Classification.routine,
+    goalNumber: undefined,
+    goalDescription: undefined,
+    plannedIndicator: undefined,
+    quantitativeGoal: undefined,
+    achievedResult: undefined,
+    contributionPercent: undefined,
+    goalStatus: undefined,
+    technicalJustification: undefined,
+    totalAudience: BigInt(0),
+    children: BigInt(0),
+    youth: BigInt(0),
+    adults: BigInt(0),
+    elderly: BigInt(0),
+    pcd: BigInt(0),
+    accessibilityOptions: [AccessibilityOption.none],
+    hadPartnership: false,
+    partnerName: undefined,
+    partnerType: undefined,
+    objective: undefined,
+    executedDescription: '',
+    achievedResults: '',
+    qualitativeAssessment: '',
+    evidences: [],
+    attachmentsPrefix: '',
+    productRealised: ProductRealised.naoSeAplica,
+    quantity: undefined,
+    audienceRange: AudienceRange.naoSeAplica,
+    partnershipsInvolved: undefined,
+    status: ActivityStatus.notStarted,
+    cancellationReason: undefined,
+  };
 }
 
 export default function ActivityFormPage() {
+  const { reportId, activityId } = useParams({ strict: false }) as {
+    reportId?: string;
+    activityId?: string;
+  };
   const navigate = useNavigate();
-  const params = useParams({ strict: false }) as { reportId?: string; activityId?: string };
-  const reportId = params.reportId ?? '';
-  const activityId = params.activityId as string | undefined;
-  const isEditing = !!activityId;
+  const { data: userProfile } = useGetCallerUserProfile();
 
-  const { data: existingActivity, isLoading: loadingActivity } = useGetActivity(activityId);
+  const isNew = !activityId || activityId === 'new';
+  const { data: existingActivity, isLoading: activityLoading } = useActivity(
+    isNew ? undefined : activityId
+  );
+
   const createActivity = useCreateActivity();
   const updateActivity = useUpdateActivity();
 
-  const [formData, setFormData] = useState<ActivityFormData>(defaultFormData);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string>('');
+  const [formData, setFormData] = useState<Activity | null>(null);
+  const [audienceError, setAudienceError] = useState('');
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (existingActivity) {
-      setFormData({
-        date: timestampToDate(existingActivity.date),
-        museum: existingActivity.museum as MuseumLocation,
-        actionType: existingActivity.actionType,
-        activityName: existingActivity.activityName,
-        dedicatedHours: existingActivity.dedicatedHours != null ? String(existingActivity.dedicatedHours) : '',
-        hoursNotApplicable: existingActivity.hoursNotApplicable,
-        classification: existingActivity.classification,
-        goalNumber: existingActivity.goalNumber != null ? String(existingActivity.goalNumber) : '',
-        goalDescription: existingActivity.goalDescription ?? '',
-        plannedIndicator: existingActivity.plannedIndicator ?? '',
-        quantitativeGoal: existingActivity.quantitativeGoal != null ? String(existingActivity.quantitativeGoal) : '',
-        achievedResult: existingActivity.achievedResult != null ? String(existingActivity.achievedResult) : '',
-        contributionPercent: existingActivity.contributionPercent != null ? String(existingActivity.contributionPercent) : '',
-        goalStatus: existingActivity.goalStatus ?? '',
-        technicalJustification: existingActivity.technicalJustification ?? '',
-        totalAudience: String(existingActivity.totalAudience),
-        children: String(existingActivity.children),
-        youth: String(existingActivity.youth),
-        adults: String(existingActivity.adults),
-        elderly: String(existingActivity.elderly),
-        pcd: String(existingActivity.pcd),
-        accessibilityOptions: existingActivity.accessibilityOptions,
-        hadPartnership: existingActivity.hadPartnership,
-        partnerName: existingActivity.partnerName ?? '',
-        partnerType: existingActivity.partnerType ?? '',
-        objective: existingActivity.objective ?? '',
-        executedDescription: existingActivity.executedDescription,
-        achievedResults: existingActivity.achievedResults,
-        qualitativeAssessment: existingActivity.qualitativeAssessment,
-        evidences: existingActivity.evidences,
-        attachmentsPrefix: existingActivity.attachmentsPrefix,
-        productRealised: existingActivity.productRealised,
-        quantity: existingActivity.quantity ?? '',
-        audienceRange: existingActivity.audienceRange,
-        partnershipsInvolved: existingActivity.partnershipsInvolved ?? '',
-        status: existingActivity.status,
-        cancellationReason: existingActivity.cancellationReason ?? '',
-      });
+    if (initialized) return;
+    if (isNew && reportId && userProfile) {
+      setFormData(emptyActivity(reportId, userProfile.museum));
+      setInitialized(true);
+    } else if (!isNew && existingActivity) {
+      setFormData(existingActivity);
+      setInitialized(true);
     }
-  }, [existingActivity]);
+  }, [isNew, existingActivity, reportId, userProfile, initialized]);
 
-  const handleChange = (field: keyof ActivityFormData, value: unknown) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+  const handleChange = <K extends keyof Activity>(field: K, value: Activity[K]) => {
+    setFormData((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
-  // Mutual exclusion logic for hours fields
-  const handleDedicatedHoursChange = (value: string) => {
-    const numVal = parseInt(value, 10);
-    if (value !== '' && !isNaN(numVal) && numVal >= 1) {
-      setFormData(prev => ({ ...prev, dedicatedHours: value, hoursNotApplicable: false }));
-    } else {
-      setFormData(prev => ({ ...prev, dedicatedHours: value }));
+  const validateAudience = (data: Activity): boolean => {
+    const total =
+      Number(data.children) +
+      Number(data.youth) +
+      Number(data.adults) +
+      Number(data.elderly) +
+      Number(data.pcd);
+    if (total > Number(data.totalAudience)) {
+      setAudienceError(
+        'A soma dos subgrupos não pode exceder o total de público.'
+      );
+      return false;
     }
-    if (errors['dedicatedHours'] || errors['hoursNotApplicable']) {
-      setErrors(prev => ({ ...prev, dedicatedHours: '', hoursNotApplicable: '' }));
-    }
+    setAudienceError('');
+    return true;
   };
 
-  const handleHoursNotApplicableChange = (checked: boolean) => {
-    if (checked) {
-      setFormData(prev => ({ ...prev, hoursNotApplicable: true, dedicatedHours: '' }));
-    } else {
-      setFormData(prev => ({ ...prev, hoursNotApplicable: false }));
-    }
-    if (errors['dedicatedHours'] || errors['hoursNotApplicable']) {
-      setErrors(prev => ({ ...prev, dedicatedHours: '', hoursNotApplicable: '' }));
-    }
-  };
+  const handleSave = async () => {
+    if (!formData || !reportId) return;
 
-  const handleAccessibilityChange = (option: AccessibilityOption, checked: boolean) => {
-    setFormData(prev => {
-      let opts = [...prev.accessibilityOptions];
-      if (checked) {
-        if (option === AccessibilityOption.none) {
-          opts = [AccessibilityOption.none];
-        } else {
-          opts = opts.filter(o => o !== AccessibilityOption.none);
-          if (!opts.includes(option)) opts.push(option);
-        }
-      } else {
-        opts = opts.filter(o => o !== option);
-        if (opts.length === 0) opts = [AccessibilityOption.none];
-      }
-      return { ...prev, accessibilityOptions: opts };
-    });
-  };
+    if (!validateAudience(formData)) return;
 
-  const handleEvidenceChange = (evidence: EvidenceType, checked: boolean) => {
-    setFormData(prev => {
-      let evs = [...prev.evidences];
-      if (checked) {
-        if (!evs.includes(evidence)) evs.push(evidence);
-      } else {
-        evs = evs.filter(e => e !== evidence);
-      }
-      return { ...prev, evidences: evs };
-    });
-  };
-
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.date) newErrors.date = 'Data é obrigatória';
-    if (!formData.museum) newErrors.museum = 'Equipe/Museu é obrigatório';
-    if (!formData.actionType.trim()) newErrors.actionType = 'Tipo de ação é obrigatório';
-    if (!formData.activityName.trim()) newErrors.activityName = 'Nome da atividade é obrigatório';
-
-    const hoursVal = parseInt(formData.dedicatedHours, 10);
-    const hasValidHours = formData.dedicatedHours !== '' && !isNaN(hoursVal) && hoursVal >= 1;
-    if (!hasValidHours && !formData.hoursNotApplicable) {
-      newErrors.dedicatedHours = 'Informe as horas dedicadas ou marque "Não se aplica"';
-    }
-    if (hasValidHours && formData.hoursNotApplicable) {
-      newErrors.dedicatedHours = 'Não é possível preencher horas e marcar "Não se aplica" simultaneamente';
-    }
-    if (formData.dedicatedHours !== '' && (isNaN(hoursVal) || hoursVal < 1)) {
-      newErrors.dedicatedHours = 'Horas dedicadas deve ser um número inteiro positivo (≥ 1)';
+    // Validate hours
+    if (!formData.hoursNotApplicable && formData.dedicatedHours === undefined) {
+      toast.error('Informe as horas dedicadas ou marque "Não se aplica".');
+      return;
     }
 
-    if (!formData.executedDescription.trim()) newErrors.executedDescription = 'Descrição executada é obrigatória';
-    if (!formData.achievedResults.trim()) newErrors.achievedResults = 'Resultados alcançados são obrigatórios';
-    if (!formData.qualitativeAssessment.trim()) newErrors.qualitativeAssessment = 'Avaliação qualitativa é obrigatória';
-
-    if (formData.status === ActivityStatus.cancelled && !formData.cancellationReason.trim()) {
-      newErrors.cancellationReason = 'Motivo de cancelamento é obrigatório';
+    // Validate product quantity
+    if (formData.productRealised !== ProductRealised.naoSeAplica && !formData.quantity) {
+      toast.error('Informe a quantidade do produto realizado.');
+      return;
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    // Validate cancellation reason
+    if (formData.status === ActivityStatus.cancelled && !formData.cancellationReason) {
+      toast.error('Informe o motivo do cancelamento.');
+      return;
+    }
 
-  const buildActivity = (id: string): Activity => {
-    const hoursVal = parseInt(formData.dedicatedHours, 10);
-    const hasValidHours = formData.dedicatedHours !== '' && !isNaN(hoursVal) && hoursVal >= 1;
-
-    return {
-      id,
-      reportId,
-      date: dateToTimestamp(formData.date),
-      museum: formData.museum as MuseumLocation,
-      actionType: formData.actionType,
-      activityName: formData.activityName,
-      dedicatedHours: hasValidHours ? BigInt(hoursVal) : undefined,
-      hoursNotApplicable: formData.hoursNotApplicable,
-      classification: formData.classification,
-      goalNumber: formData.goalNumber ? BigInt(parseInt(formData.goalNumber, 10)) : undefined,
-      goalDescription: formData.goalDescription || undefined,
-      plannedIndicator: formData.plannedIndicator || undefined,
-      quantitativeGoal: formData.quantitativeGoal ? BigInt(parseInt(formData.quantitativeGoal, 10)) : undefined,
-      achievedResult: formData.achievedResult ? BigInt(parseInt(formData.achievedResult, 10)) : undefined,
-      contributionPercent: formData.contributionPercent ? parseFloat(formData.contributionPercent) : undefined,
-      goalStatus: formData.goalStatus || undefined,
-      technicalJustification: formData.technicalJustification || undefined,
-      totalAudience: BigInt(parseInt(formData.totalAudience, 10) || 0),
-      children: BigInt(parseInt(formData.children, 10) || 0),
-      youth: BigInt(parseInt(formData.youth, 10) || 0),
-      adults: BigInt(parseInt(formData.adults, 10) || 0),
-      elderly: BigInt(parseInt(formData.elderly, 10) || 0),
-      pcd: BigInt(parseInt(formData.pcd, 10) || 0),
-      accessibilityOptions: formData.accessibilityOptions,
-      hadPartnership: formData.hadPartnership,
-      partnerName: formData.partnerName || undefined,
-      partnerType: formData.partnerType || undefined,
-      objective: formData.objective || undefined,
-      executedDescription: formData.executedDescription,
-      achievedResults: formData.achievedResults,
-      qualitativeAssessment: formData.qualitativeAssessment,
-      evidences: formData.evidences,
-      attachmentsPrefix: formData.attachmentsPrefix,
-      productRealised: formData.productRealised,
-      quantity: formData.quantity || undefined,
-      audienceRange: formData.audienceRange,
-      partnershipsInvolved: formData.partnershipsInvolved || undefined,
-      status: formData.status,
-      cancellationReason: formData.cancellationReason || undefined,
-    };
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitError('');
-
-    if (!validate()) return;
+    // Validate partnerships for large audiences
+    const largeAudience = [
+      AudienceRange.hundredOneToTwoHundred,
+      AudienceRange.twoHundredOneToFiveHundred,
+      AudienceRange.aboveFiveHundred,
+    ].includes(formData.audienceRange);
+    if (largeAudience && !formData.partnershipsInvolved) {
+      toast.error('Informe as parcerias envolvidas para público acima de 100.');
+      return;
+    }
 
     try {
-      if (isEditing && activityId) {
-        const activity = buildActivity(activityId);
-        await updateActivity.mutateAsync({ activityId, activity });
+      if (isNew) {
+        await createActivity.mutateAsync(formData);
+        toast.success('Atividade criada com sucesso!');
       } else {
-        const activity = buildActivity('');
-        await createActivity.mutateAsync(activity);
+        await updateActivity.mutateAsync({ activityId: activityId!, activity: formData });
+        toast.success('Atividade atualizada com sucesso!');
       }
-      navigate({ to: `/reports/${reportId}` });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao salvar atividade';
-      setSubmitError(msg);
+      navigate({ to: '/reports/$reportId', params: { reportId: reportId! } });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Erro ao salvar atividade';
+      toast.error(msg);
     }
   };
 
-  const isSubmitting = createActivity.isPending || updateActivity.isPending;
-
-  if (loadingActivity && isEditing) {
+  if (activityLoading || (!initialized && !isNew)) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="p-6 max-w-4xl mx-auto space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
       </div>
     );
   }
 
-  const hoursVal = parseInt(formData.dedicatedHours, 10);
-  const hasValidHours = formData.dedicatedHours !== '' && !isNaN(hoursVal) && hoursVal >= 1;
+  if (!formData) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>Erro ao carregar atividade.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const isSaving = createActivity.isPending || updateActivity.isPending;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate({ to: `/reports/${reportId}` })}
-        >
-          <ArrowLeft className="h-5 w-5" />
+    <div className="p-6 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() =>
+              navigate({ to: '/reports/$reportId', params: { reportId: reportId! } })
+            }
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <h1 className="text-2xl font-bold text-foreground">
+            {isNew ? 'Nova Atividade' : 'Editar Atividade'}
+          </h1>
+        </div>
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? (
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Salvando...
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <Save className="w-4 h-4" />
+              Salvar Atividade
+            </span>
+          )}
         </Button>
-        <h1 className="text-2xl font-bold">
-          {isEditing ? 'Editar Atividade' : 'Nova Atividade'}
-        </h1>
       </div>
 
-      {submitError && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertDescription>{submitError}</AlertDescription>
-        </Alert>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-6">
         {/* Basic Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Informações Básicas</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="date">Data *</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={e => handleChange('date', e.target.value)}
-                  className={errors.date ? 'border-destructive' : ''}
-                />
-                {errors.date && <p className="text-sm text-destructive">{errors.date}</p>}
-              </div>
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Informações da Atividade</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="activityName">Nome da Atividade *</Label>
+              <Input
+                id="activityName"
+                value={formData.activityName}
+                onChange={(e) => handleChange('activityName', e.target.value)}
+                className="mt-1"
+                placeholder="Nome da atividade"
+              />
+            </div>
+            <div>
+              <Label htmlFor="actionType">Tipo de Ação *</Label>
+              <Input
+                id="actionType"
+                value={formData.actionType}
+                onChange={(e) => handleChange('actionType', e.target.value)}
+                className="mt-1"
+                placeholder="Tipo de ação"
+              />
+            </div>
+            <div>
+              <Label htmlFor="date">Data *</Label>
+              <Input
+                id="date"
+                type="date"
+                value={
+                  formData.date
+                    ? new Date(Number(formData.date) / 1_000_000).toISOString().split('T')[0]
+                    : ''
+                }
+                onChange={(e) => {
+                  const d = new Date(e.target.value);
+                  handleChange('date', BigInt(d.getTime()) * BigInt(1_000_000));
+                }}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label>Equipe/Museu</Label>
+              <Select
+                value={formData.museum}
+                onValueChange={(v) => handleChange('museum', v as MuseumLocation)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MUSEUM_LOCATIONS.map((m) => (
+                    <SelectItem key={m} value={m}>{getMuseumLabel(m)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Status da Atividade</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(v) => handleChange('status', v as ActivityStatus)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(ActivityStatus).map((s) => (
+                    <SelectItem key={s} value={s}>{ACTIVITY_STATUS_LABELS[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Classificação</Label>
+              <Select
+                value={formData.classification}
+                onValueChange={(v) => handleChange('classification', v as Classification)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(Classification).map((c) => (
+                    <SelectItem key={c} value={c}>{CLASSIFICATION_LABELS[c]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="museum">Equipe/Museu *</Label>
+          {/* Cancellation reason */}
+          {formData.status === ActivityStatus.cancelled && (
+            <div className="mt-4">
+              <Label htmlFor="cancellationReason">Motivo do Cancelamento *</Label>
+              <Textarea
+                id="cancellationReason"
+                value={formData.cancellationReason ?? ''}
+                onChange={(e) => handleChange('cancellationReason', e.target.value)}
+                className="mt-1"
+                placeholder="Descreva o motivo do cancelamento"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Hours */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Horas Dedicadas</h2>
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <Label htmlFor="dedicatedHours">Horas Dedicadas à Atividade</Label>
+              <Input
+                id="dedicatedHours"
+                type="number"
+                min="0"
+                value={formData.dedicatedHours !== undefined ? Number(formData.dedicatedHours) : ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    handleChange('dedicatedHours', undefined);
+                  } else {
+                    handleChange('dedicatedHours', BigInt(parseInt(val, 10)));
+                    handleChange('hoursNotApplicable', false);
+                  }
+                }}
+                disabled={formData.hoursNotApplicable}
+                className="mt-1"
+                placeholder="Número de horas"
+              />
+            </div>
+            <div className="flex items-center gap-2 mt-6">
+              <Checkbox
+                id="hoursNotApplicable"
+                checked={formData.hoursNotApplicable}
+                onCheckedChange={(checked) => {
+                  handleChange('hoursNotApplicable', !!checked);
+                  if (checked) handleChange('dedicatedHours', undefined);
+                }}
+              />
+              <Label htmlFor="hoursNotApplicable">Não se aplica</Label>
+            </div>
+          </div>
+        </div>
+
+        {/* Goal-linked fields */}
+        {formData.classification === Classification.goalLinked && (
+          <div className="bg-card border border-border rounded-xl p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Informações da Meta</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="goalNumber">Número da Meta</Label>
+                <Input
+                  id="goalNumber"
+                  type="number"
+                  value={formData.goalNumber !== undefined ? Number(formData.goalNumber) : ''}
+                  onChange={(e) =>
+                    handleChange('goalNumber', e.target.value ? BigInt(e.target.value) : undefined)
+                  }
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Status da Meta</Label>
                 <Select
-                  value={formData.museum}
-                  onValueChange={v => handleChange('museum', v as MuseumLocation)}
+                  value={formData.goalStatus ?? ''}
+                  onValueChange={(v) => handleChange('goalStatus', v as GoalStatus)}
                 >
-                  <SelectTrigger className={errors.museum ? 'border-destructive' : ''}>
-                    <SelectValue placeholder="Selecionar equipe/museu..." />
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {MUSEUM_LOCATIONS.map(loc => (
-                      <SelectItem key={loc} value={loc}>
-                        {getMuseumLabel(loc)}
-                      </SelectItem>
+                    {Object.values(GoalStatus).map((g) => (
+                      <SelectItem key={g} value={g}>{GOAL_STATUS_LABELS[g]}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.museum && <p className="text-sm text-destructive">{errors.museum}</p>}
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="actionType">Tipo de Ação *</Label>
+              <div>
+                <Label htmlFor="quantitativeGoal">Meta Quantitativa</Label>
                 <Input
-                  id="actionType"
-                  value={formData.actionType}
-                  onChange={e => handleChange('actionType', e.target.value)}
-                  placeholder="Ex: Oficina, Palestra, Exposição"
-                  className={errors.actionType ? 'border-destructive' : ''}
+                  id="quantitativeGoal"
+                  type="number"
+                  value={formData.quantitativeGoal !== undefined ? Number(formData.quantitativeGoal) : ''}
+                  onChange={(e) =>
+                    handleChange('quantitativeGoal', e.target.value ? BigInt(e.target.value) : undefined)
+                  }
+                  className="mt-1"
                 />
-                {errors.actionType && <p className="text-sm text-destructive">{errors.actionType}</p>}
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="activityName">Nome da Atividade *</Label>
+              <div>
+                <Label htmlFor="achievedResult">Resultado Alcançado</Label>
                 <Input
-                  id="activityName"
-                  value={formData.activityName}
-                  onChange={e => handleChange('activityName', e.target.value)}
-                  placeholder="Nome da atividade"
-                  className={errors.activityName ? 'border-destructive' : ''}
+                  id="achievedResult"
+                  type="number"
+                  value={formData.achievedResult !== undefined ? Number(formData.achievedResult) : ''}
+                  onChange={(e) =>
+                    handleChange('achievedResult', e.target.value ? BigInt(e.target.value) : undefined)
+                  }
+                  className="mt-1"
                 />
-                {errors.activityName && <p className="text-sm text-destructive">{errors.activityName}</p>}
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="goalDescription">Descrição da Meta</Label>
+                <Textarea
+                  id="goalDescription"
+                  value={formData.goalDescription ?? ''}
+                  onChange={(e) => handleChange('goalDescription', e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="technicalJustification">Justificativa Técnica</Label>
+                <Textarea
+                  id="technicalJustification"
+                  value={formData.technicalJustification ?? ''}
+                  onChange={(e) => handleChange('technicalJustification', e.target.value)}
+                  className="mt-1"
+                />
               </div>
             </div>
-
-            {/* Hybrid Hours Field */}
-            <div className="space-y-2">
-              <Label>Horas dedicadas à atividade *</Label>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex-1 max-w-xs">
-                  <Input
-                    id="dedicatedHours"
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={formData.dedicatedHours}
-                    onChange={e => handleDedicatedHoursChange(e.target.value)}
-                    placeholder="Ex: 1, 2, 4, 6, 10"
-                    disabled={formData.hoursNotApplicable}
-                    className={errors.dedicatedHours ? 'border-destructive' : ''}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="hoursNotApplicable"
-                    checked={formData.hoursNotApplicable}
-                    onCheckedChange={(checked) => handleHoursNotApplicableChange(checked === true)}
-                    disabled={hasValidHours}
-                  />
-                  <Label htmlFor="hoursNotApplicable" className="font-normal cursor-pointer">
-                    Não se aplica
-                  </Label>
-                </div>
-              </div>
-              {errors.dedicatedHours && (
-                <p className="text-sm text-destructive">{errors.dedicatedHours}</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Classification */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Classificação</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Classificação *</Label>
-              <Select
-                value={formData.classification}
-                onValueChange={v => handleChange('classification', v as Classification)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={Classification.routine}>Rotina</SelectItem>
-                  <SelectItem value={Classification.goalLinked}>Vinculada à Meta</SelectItem>
-                  <SelectItem value={Classification.extra}>Extra</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {formData.classification === Classification.goalLinked && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t">
-                <div className="space-y-2">
-                  <Label htmlFor="goalNumber">Nº da Meta</Label>
-                  <Input
-                    id="goalNumber"
-                    type="number"
-                    value={formData.goalNumber}
-                    onChange={e => handleChange('goalNumber', e.target.value)}
-                    placeholder="Ex: 1"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="goalStatus">Status da Meta</Label>
-                  <Select
-                    value={formData.goalStatus}
-                    onValueChange={v => handleChange('goalStatus', v as GoalStatus)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecionar..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={GoalStatus.inProgress}>Em andamento</SelectItem>
-                      <SelectItem value={GoalStatus.partiallyCumplied}>Parcialmente cumprida</SelectItem>
-                      <SelectItem value={GoalStatus.achieved}>Alcançada</SelectItem>
-                      <SelectItem value={GoalStatus.exceeded}>Superada</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="goalDescription">Descrição da Meta</Label>
-                  <Textarea
-                    id="goalDescription"
-                    value={formData.goalDescription}
-                    onChange={e => handleChange('goalDescription', e.target.value)}
-                    rows={2}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="plannedIndicator">Indicador Planejado</Label>
-                  <Input
-                    id="plannedIndicator"
-                    value={formData.plannedIndicator}
-                    onChange={e => handleChange('plannedIndicator', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="quantitativeGoal">Meta Quantitativa</Label>
-                  <Input
-                    id="quantitativeGoal"
-                    type="number"
-                    value={formData.quantitativeGoal}
-                    onChange={e => handleChange('quantitativeGoal', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="achievedResult">Resultado Alcançado</Label>
-                  <Input
-                    id="achievedResult"
-                    type="number"
-                    value={formData.achievedResult}
-                    onChange={e => handleChange('achievedResult', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contributionPercent">% Contribuição</Label>
-                  <Input
-                    id="contributionPercent"
-                    type="number"
-                    step="0.1"
-                    value={formData.contributionPercent}
-                    onChange={e => handleChange('contributionPercent', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="technicalJustification">Justificativa Técnica</Label>
-                  <Textarea
-                    id="technicalJustification"
-                    value={formData.technicalJustification}
-                    onChange={e => handleChange('technicalJustification', e.target.value)}
-                    rows={2}
-                  />
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+        )}
 
         {/* Audience */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Público</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="totalAudience">Total de Público</Label>
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Público</h2>
+          {audienceError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{audienceError}</AlertDescription>
+            </Alert>
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {[
+              { field: 'totalAudience', label: 'Total de Público *' },
+              { field: 'children', label: 'Crianças' },
+              { field: 'youth', label: 'Jovens' },
+              { field: 'adults', label: 'Adultos' },
+              { field: 'elderly', label: 'Idosos' },
+              { field: 'pcd', label: 'PCD' },
+            ].map(({ field, label }) => (
+              <div key={field}>
+                <Label htmlFor={field}>{label}</Label>
                 <Input
-                  id="totalAudience"
+                  id={field}
                   type="number"
-                  min={0}
-                  value={formData.totalAudience}
-                  onChange={e => handleChange('totalAudience', e.target.value)}
+                  min="0"
+                  value={Number(formData[field as keyof Activity] ?? 0)}
+                  onChange={(e) =>
+                    handleChange(field as keyof Activity, BigInt(parseInt(e.target.value, 10) || 0) as Activity[keyof Activity])
+                  }
+                  className="mt-1"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="children">Crianças</Label>
-                <Input
-                  id="children"
-                  type="number"
-                  min={0}
-                  value={formData.children}
-                  onChange={e => handleChange('children', e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="youth">Jovens</Label>
-                <Input
-                  id="youth"
-                  type="number"
-                  min={0}
-                  value={formData.youth}
-                  onChange={e => handleChange('youth', e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="adults">Adultos</Label>
-                <Input
-                  id="adults"
-                  type="number"
-                  min={0}
-                  value={formData.adults}
-                  onChange={e => handleChange('adults', e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="elderly">Idosos</Label>
-                <Input
-                  id="elderly"
-                  type="number"
-                  min={0}
-                  value={formData.elderly}
-                  onChange={e => handleChange('elderly', e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pcd">PCD</Label>
-                <Input
-                  id="pcd"
-                  type="number"
-                  min={0}
-                  value={formData.pcd}
-                  onChange={e => handleChange('pcd', e.target.value)}
-                />
-              </div>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Label>Faixa de Público</Label>
+            <Select
+              value={formData.audienceRange}
+              onValueChange={(v) => handleChange('audienceRange', v as AudienceRange)}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(AudienceRange).map((a) => (
+                  <SelectItem key={a} value={a}>{AUDIENCE_RANGE_LABELS[a]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {[
+            AudienceRange.hundredOneToTwoHundred,
+            AudienceRange.twoHundredOneToFiveHundred,
+            AudienceRange.aboveFiveHundred,
+          ].includes(formData.audienceRange) && (
+            <div className="mt-4">
+              <Label htmlFor="partnershipsInvolved">Parcerias Envolvidas *</Label>
+              <Textarea
+                id="partnershipsInvolved"
+                value={formData.partnershipsInvolved ?? ''}
+                onChange={(e) => handleChange('partnershipsInvolved', e.target.value)}
+                className="mt-1"
+                placeholder="Descreva as parcerias envolvidas"
+              />
             </div>
+          )}
+        </div>
 
-            <div className="space-y-2">
-              <Label>Faixa de Público</Label>
+        {/* Product & Quantity */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Produto Realizado</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Produto Realizado</Label>
               <Select
-                value={formData.audienceRange}
-                onValueChange={v => handleChange('audienceRange', v as AudienceRange)}
+                value={formData.productRealised}
+                onValueChange={(v) => handleChange('productRealised', v as ProductRealised)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={AudienceRange.naoSeAplica}>Não se aplica</SelectItem>
-                  <SelectItem value={AudienceRange.zeroToTwenty}>0 a 20 pessoas</SelectItem>
-                  <SelectItem value={AudienceRange.twentyOneToFifty}>21 a 50 pessoas</SelectItem>
-                  <SelectItem value={AudienceRange.fiftyOneToHundred}>51 a 100 pessoas</SelectItem>
-                  <SelectItem value={AudienceRange.hundredOneToTwoHundred}>101 a 200 pessoas</SelectItem>
-                  <SelectItem value={AudienceRange.twoHundredOneToFiveHundred}>201 a 500 pessoas</SelectItem>
-                  <SelectItem value={AudienceRange.aboveFiveHundred}>Acima de 500 pessoas</SelectItem>
+                  {Object.values(ProductRealised).map((p) => (
+                    <SelectItem key={p} value={p}>{PRODUCT_REALISED_LABELS[p]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-
-            {(formData.audienceRange === AudienceRange.hundredOneToTwoHundred ||
-              formData.audienceRange === AudienceRange.twoHundredOneToFiveHundred ||
-              formData.audienceRange === AudienceRange.aboveFiveHundred) && (
-              <div className="space-y-2">
-                <Label htmlFor="partnershipsInvolved">Parcerias Envolvidas *</Label>
-                <Textarea
-                  id="partnershipsInvolved"
-                  value={formData.partnershipsInvolved}
-                  onChange={e => handleChange('partnershipsInvolved', e.target.value)}
-                  placeholder="Descreva as parcerias envolvidas"
-                  rows={2}
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Accessibility */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Acessibilidade</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {Object.values(AccessibilityOption).map(opt => (
-                <div key={opt} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`acc-${opt}`}
-                    checked={formData.accessibilityOptions.includes(opt)}
-                    onCheckedChange={checked => handleAccessibilityChange(opt, checked === true)}
-                  />
-                  <Label htmlFor={`acc-${opt}`} className="font-normal cursor-pointer">
-                    {opt === AccessibilityOption.none ? 'Nenhuma' :
-                     opt === AccessibilityOption.libras ? 'Libras' :
-                     opt === AccessibilityOption.audioDescription ? 'Audiodescrição' :
-                     opt === AccessibilityOption.tactileMaterial ? 'Material Tátil' : 'Outro'}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Partnership */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Parceria</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="hadPartnership"
-                checked={formData.hadPartnership}
-                onCheckedChange={checked => handleChange('hadPartnership', checked === true)}
-              />
-              <Label htmlFor="hadPartnership" className="font-normal cursor-pointer">
-                Houve parceria nesta atividade?
-              </Label>
-            </div>
-            {formData.hadPartnership && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="partnerName">Nome do Parceiro</Label>
-                  <Input
-                    id="partnerName"
-                    value={formData.partnerName}
-                    onChange={e => handleChange('partnerName', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="partnerType">Tipo de Parceiro</Label>
-                  <Input
-                    id="partnerType"
-                    value={formData.partnerType}
-                    onChange={e => handleChange('partnerType', e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Product */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Produto Realizado</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Produto Realizado</Label>
+            {formData.productRealised !== ProductRealised.naoSeAplica && (
+              <div>
+                <Label>Quantidade *</Label>
                 <Select
-                  value={formData.productRealised}
-                  onValueChange={v => handleChange('productRealised', v as ProductRealised)}
+                  value={formData.quantity ?? ''}
+                  onValueChange={(v) => handleChange('quantity', v as Quantity)}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={ProductRealised.naoSeAplica}>Não se aplica</SelectItem>
-                    <SelectItem value={ProductRealised.oficinaRealizada}>Oficina realizada</SelectItem>
-                    <SelectItem value={ProductRealised.relatorioEntregue}>Relatório entregue</SelectItem>
-                    <SelectItem value={ProductRealised.exposicaoMontada}>Exposição montada</SelectItem>
-                    <SelectItem value={ProductRealised.eventoExecutado}>Evento executado</SelectItem>
-                    <SelectItem value={ProductRealised.planoDeAcaoElaborado}>Plano de ação elaborado</SelectItem>
-                    <SelectItem value={ProductRealised.materialGraficoProduzido}>Material gráfico produzido</SelectItem>
-                    <SelectItem value={ProductRealised.conteudoDigitalPublicado}>Conteúdo digital publicado</SelectItem>
-                    <SelectItem value={ProductRealised.pesquisaConcluida}>Pesquisa concluída</SelectItem>
-                    <SelectItem value={ProductRealised.reuniaoRegistrada}>Reunião registrada</SelectItem>
-                    <SelectItem value={ProductRealised.outro}>Outro</SelectItem>
+                    {Object.values(Quantity).map((q) => (
+                      <SelectItem key={q} value={q}>{QUANTITY_LABELS[q]}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+            )}
+          </div>
+        </div>
 
-              {formData.productRealised !== ProductRealised.naoSeAplica && (
-                <div className="space-y-2">
-                  <Label>Quantidade</Label>
-                  <Select
-                    value={formData.quantity}
-                    onValueChange={v => handleChange('quantity', v as Quantity)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecionar..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={Quantity.one}>1</SelectItem>
-                      <SelectItem value={Quantity.two}>2</SelectItem>
-                      <SelectItem value={Quantity.three}>3</SelectItem>
-                      <SelectItem value={Quantity.four}>4</SelectItem>
-                      <SelectItem value={Quantity.five}>5</SelectItem>
-                      <SelectItem value={Quantity.six}>6</SelectItem>
-                      <SelectItem value={Quantity.seven}>7</SelectItem>
-                      <SelectItem value={Quantity.eight}>8</SelectItem>
-                      <SelectItem value={Quantity.nine}>9</SelectItem>
-                      <SelectItem value={Quantity.ten}>10</SelectItem>
-                      <SelectItem value={Quantity.maisDeDez}>Mais de 10</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Description */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Descrição e Resultados</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="objective">Objetivo</Label>
-              <Textarea
-                id="objective"
-                value={formData.objective}
-                onChange={e => handleChange('objective', e.target.value)}
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="executedDescription">Descrição Executada *</Label>
-              <Textarea
-                id="executedDescription"
-                value={formData.executedDescription}
-                onChange={e => handleChange('executedDescription', e.target.value)}
-                rows={3}
-                className={errors.executedDescription ? 'border-destructive' : ''}
-              />
-              {errors.executedDescription && (
-                <p className="text-sm text-destructive">{errors.executedDescription}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="achievedResults">Resultados Alcançados *</Label>
-              <Textarea
-                id="achievedResults"
-                value={formData.achievedResults}
-                onChange={e => handleChange('achievedResults', e.target.value)}
-                rows={3}
-                className={errors.achievedResults ? 'border-destructive' : ''}
-              />
-              {errors.achievedResults && (
-                <p className="text-sm text-destructive">{errors.achievedResults}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="qualitativeAssessment">Avaliação Qualitativa *</Label>
-              <Textarea
-                id="qualitativeAssessment"
-                value={formData.qualitativeAssessment}
-                onChange={e => handleChange('qualitativeAssessment', e.target.value)}
-                rows={3}
-                className={errors.qualitativeAssessment ? 'border-destructive' : ''}
-              />
-              {errors.qualitativeAssessment && (
-                <p className="text-sm text-destructive">{errors.qualitativeAssessment}</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Accessibility */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Acessibilidade</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {Object.values(AccessibilityOption).map((opt) => (
+              <div key={opt} className="flex items-center gap-2">
+                <Checkbox
+                  id={`acc-${opt}`}
+                  checked={formData.accessibilityOptions.includes(opt)}
+                  onCheckedChange={(checked) => {
+                    const current = formData.accessibilityOptions.filter((o) => o !== AccessibilityOption.none);
+                    if (opt === AccessibilityOption.none) {
+                      handleChange('accessibilityOptions', checked ? [AccessibilityOption.none] : []);
+                    } else {
+                      const updated = checked
+                        ? [...current.filter((o) => o !== opt), opt]
+                        : current.filter((o) => o !== opt);
+                      handleChange('accessibilityOptions', updated.length === 0 ? [AccessibilityOption.none] : updated);
+                    }
+                  }}
+                />
+                <Label htmlFor={`acc-${opt}`}>{ACCESSIBILITY_LABELS[opt]}</Label>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Evidences */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Evidências</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {Object.values(EvidenceType).map(ev => (
-                <div key={ev} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`ev-${ev}`}
-                    checked={formData.evidences.includes(ev)}
-                    onCheckedChange={checked => handleEvidenceChange(ev, checked === true)}
-                  />
-                  <Label htmlFor={`ev-${ev}`} className="font-normal cursor-pointer">
-                    {ev === EvidenceType.photos ? 'Fotos' :
-                     ev === EvidenceType.attendanceList ? 'Lista de presença' :
-                     ev === EvidenceType.report ? 'Relatório' :
-                     ev === EvidenceType.graphicMaterial ? 'Material gráfico' : 'Outro'}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Status da Atividade</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={v => handleChange('status', v as ActivityStatus)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ActivityStatus.notStarted}>Não iniciada</SelectItem>
-                  <SelectItem value={ActivityStatus.submitted}>Enviada</SelectItem>
-                  <SelectItem value={ActivityStatus.completed}>Concluída</SelectItem>
-                  <SelectItem value={ActivityStatus.rescheduled}>Reagendada</SelectItem>
-                  <SelectItem value={ActivityStatus.cancelled}>Cancelada</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {formData.status === ActivityStatus.cancelled && (
-              <div className="space-y-2">
-                <Label htmlFor="cancellationReason">Motivo do Cancelamento *</Label>
-                <Textarea
-                  id="cancellationReason"
-                  value={formData.cancellationReason}
-                  onChange={e => handleChange('cancellationReason', e.target.value)}
-                  rows={2}
-                  className={errors.cancellationReason ? 'border-destructive' : ''}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Evidências</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {Object.values(EvidenceType).map((ev) => (
+              <div key={ev} className="flex items-center gap-2">
+                <Checkbox
+                  id={`ev-${ev}`}
+                  checked={formData.evidences.includes(ev)}
+                  onCheckedChange={(checked) => {
+                    const updated = checked
+                      ? [...formData.evidences, ev]
+                      : formData.evidences.filter((e) => e !== ev);
+                    handleChange('evidences', updated);
+                  }}
                 />
-                {errors.cancellationReason && (
-                  <p className="text-sm text-destructive">{errors.cancellationReason}</p>
-                )}
+                <Label htmlFor={`ev-${ev}`}>{EVIDENCE_LABELS[ev]}</Label>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Submit */}
-        <div className="flex gap-3 pb-8">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate({ to: `/reports/${reportId}` })}
-            disabled={isSubmitting}
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isSubmitting} className="gap-2">
-            {isSubmitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {isEditing ? 'Salvar Alterações' : 'Criar Atividade'}
-          </Button>
+            ))}
+          </div>
         </div>
-      </form>
+
+        {/* Partnership */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Parceria</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <Checkbox
+              id="hadPartnership"
+              checked={formData.hadPartnership}
+              onCheckedChange={(checked) => handleChange('hadPartnership', !!checked)}
+            />
+            <Label htmlFor="hadPartnership">Houve parceria nesta atividade?</Label>
+          </div>
+          {formData.hadPartnership && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="partnerName">Nome do Parceiro</Label>
+                <Input
+                  id="partnerName"
+                  value={formData.partnerName ?? ''}
+                  onChange={(e) => handleChange('partnerName', e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="partnerType">Tipo de Parceiro</Label>
+                <Input
+                  id="partnerType"
+                  value={formData.partnerType ?? ''}
+                  onChange={(e) => handleChange('partnerType', e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Descriptions */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Descrições e Avaliação</h2>
+          <div className="space-y-4">
+            {[
+              { field: 'objective', label: 'Objetivo' },
+              { field: 'executedDescription', label: 'Descrição do Executado *' },
+              { field: 'achievedResults', label: 'Resultados Alcançados *' },
+              { field: 'qualitativeAssessment', label: 'Avaliação Qualitativa *' },
+            ].map(({ field, label }) => (
+              <div key={field}>
+                <Label htmlFor={field}>{label}</Label>
+                <Textarea
+                  id={field}
+                  value={(formData[field as keyof Activity] as string) ?? ''}
+                  onChange={(e) => handleChange(field as keyof Activity, e.target.value as Activity[keyof Activity])}
+                  className="mt-1 min-h-20"
+                  placeholder={`Digite ${label.replace(' *', '').toLowerCase()}...`}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

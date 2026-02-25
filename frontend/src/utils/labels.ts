@@ -1,4 +1,16 @@
-import { MuseumLocation, Month, Status, ActivityStatus, Classification, GoalStatus, AccessibilityOption, EvidenceType, ProductRealised, Quantity, AudienceRange } from '../backend';
+import {
+  MuseumLocation,
+  Month,
+  Status,
+  ActivityStatus,
+  Classification,
+  GoalStatus,
+  AccessibilityOption,
+  EvidenceType,
+  ProductRealised,
+  Quantity,
+  AudienceRange,
+} from '../backend';
 
 export function getMuseumLabel(museum: MuseumLocation | string): string {
   switch (museum) {
@@ -65,6 +77,11 @@ export function statusLabel(status: Status | string): string {
     [Status.requiresAdjustment]: 'Necessita ajustes',
   };
   return labels[status as string] ?? String(status);
+}
+
+/** Alias for statusLabel */
+export function getStatusLabel(status: Status | string): string {
+  return statusLabel(status);
 }
 
 export function activityStatusLabel(status: ActivityStatus): string {
@@ -203,4 +220,18 @@ export const MONTH_ORDER: string[] = [
   'september',
   'october',
   'november',
+];
+
+/** Ordered array of Month enum values (matches MONTH_ORDER) */
+export const MONTHS: Month[] = [
+  Month.february,
+  Month.march,
+  Month.april,
+  Month.may,
+  Month.june,
+  Month.july,
+  Month.august,
+  Month.september,
+  Month.october,
+  Month.november,
 ];

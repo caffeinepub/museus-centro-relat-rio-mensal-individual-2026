@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useGetAllReports, useGetAllActivities, useGetCallerUserProfile } from '../hooks/useQueries';
+import { useAllReports, useAllActivities, useGetCallerUserProfile } from '../hooks/useQueries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -7,12 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, Download, FileText, Users, Activity, Lightbulb } from 'lucide-react';
 import { Month, Status, type Activity as ActivityType } from '../backend';
-import { monthLabel, statusLabel, productRealisedLabel } from '../utils/labels';
+import { monthLabel, statusLabel, productRealisedLabel, getMuseumLabel, MUSEUM_LOCATIONS } from '../utils/labels';
 import { generateConsolidatedPDF } from '../utils/consolidatedPdfGenerator';
 import { generateConsolidatedCsv } from '../utils/consolidatedCsvGenerator';
 import { toast } from 'sonner';
 
-const MONTHS = [
+const MONTHS_LIST = [
   { value: Month.february, label: 'Fevereiro' },
   { value: Month.march, label: 'Março' },
   { value: Month.april, label: 'Abril' },
@@ -27,8 +27,6 @@ const MONTHS = [
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - i);
-
-const MUSEUMS = ['MHAB', 'MIS', 'MUMO'];
 
 function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
@@ -49,8 +47,8 @@ function quantityToNumber(qty: string): number {
 
 export default function ConsolidatedMuseumPage() {
   const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
-  const { data: allReports, isLoading: reportsLoading } = useGetAllReports();
-  const { data: allActivities, isLoading: activitiesLoading } = useGetAllActivities();
+  const { data: allReports, isLoading: reportsLoading } = useAllReports();
+  const { data: allActivities, isLoading: activitiesLoading } = useAllActivities();
 
   const [selectedMuseum, setSelectedMuseum] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
@@ -153,23 +151,23 @@ export default function ConsolidatedMuseumPage() {
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-center gap-3">
         <BarChart3 className="w-6 h-6 text-primary" />
-        <h1 className="text-2xl font-bold">Consolidado por Museu</h1>
+        <h1 className="text-2xl font-bold">Consolidado por Equipe/Museu</h1>
       </div>
 
       {/* Selectors */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Selecionar Período e Museu</CardTitle>
+          <CardTitle className="text-base">Selecionar Período e Equipe/Museu</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select value={selectedMuseum} onValueChange={setSelectedMuseum}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecionar museu..." />
+                <SelectValue placeholder="Selecionar equipe/museu..." />
               </SelectTrigger>
               <SelectContent>
-                {MUSEUMS.map((m) => (
-                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                {MUSEUM_LOCATIONS.map((m) => (
+                  <SelectItem key={m} value={m}>{getMuseumLabel(m)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -179,7 +177,7 @@ export default function ConsolidatedMuseumPage() {
                 <SelectValue placeholder="Selecionar mês..." />
               </SelectTrigger>
               <SelectContent>
-                {MONTHS.map((m) => (
+                {MONTHS_LIST.map((m) => (
                   <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -290,13 +288,13 @@ export default function ConsolidatedMuseumPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">
-                    Relatórios Individuais — {selectedMuseum} / {monthLabel(selectedMonth as any)} {selectedYear}
+                    Relatórios — {getMuseumLabel(selectedMuseum as any)} / {monthLabel(selectedMonth as any)} {selectedYear}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   {filteredReports.length === 0 ? (
                     <p className="p-4 text-muted-foreground text-sm">
-                      Nenhum relatório encontrado para este período e museu.
+                      Nenhum relatório encontrado para este período e equipe/museu.
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -353,7 +351,7 @@ export default function ConsolidatedMuseumPage() {
       {!hasSelection && (
         <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
           <BarChart3 className="w-10 h-10" />
-          <p>Selecione um museu e mês para visualizar o consolidado.</p>
+          <p>Selecione uma equipe/museu e mês para visualizar o consolidado.</p>
         </div>
       )}
     </div>
