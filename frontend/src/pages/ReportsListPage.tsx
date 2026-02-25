@@ -4,9 +4,10 @@ import {
   useReportsForUser,
   useDeleteReport,
   useGetCallerUserProfile,
+  useGetReportWithActivities,
 } from '../hooks/useQueries';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { Report, Status, AppUserRole } from '../backend';
+import { Report, Status, AppUserRole, Month } from '../backend';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,9 +33,15 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  FileSpreadsheet,
+  Download,
 } from 'lucide-react';
-import { statusLabel, getMuseumLabel, getMonthLabel } from '../utils/labels';
+import { statusLabel, getMuseumLabel, getMonthLabel, getCurrentMonth, getCurrentYear } from '../utils/labels';
 import ActivitiesList from '../components/ActivitiesList';
+import MonthYearSelector from '../components/MonthYearSelector';
+import { generateReportPDF } from '../utils/pdfGenerator';
+import { generateExcelExport } from '../utils/excelGenerator';
+import { toast } from 'sonner';
 
 function getStatusBadgeVariant(status: Status): 'default' | 'secondary' | 'outline' | 'destructive' {
   switch (status) {
@@ -172,8 +179,18 @@ export default function ReportsListPage() {
     identity?.getPrincipal()
   );
   const deleteMutation = useDeleteReport();
+  const getReportWithActivitiesMutation = useGetReportWithActivities();
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+
+  // Default to current month/year; fall back to february if outside valid range
+  const defaultMonth: Month = getCurrentMonth() ?? Month.february;
+  const defaultYear: number = getCurrentYear();
+
+  const [selectedMonth, setSelectedMonth] = useState<Month>(defaultMonth);
+  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
 
   const userRole = userProfile?.appRole;
 
@@ -197,6 +214,63 @@ export default function ReportsListPage() {
     navigate({ to: '/activities/new', search: { reportId } });
   };
 
+  /** Find the report matching the selected month/year from the user's reports */
+  const findMatchingReport = (): Report | undefined => {
+    if (!reports) return undefined;
+    return reports.find(
+      (r) =>
+        r.referenceMonth === selectedMonth &&
+        Number(r.year) === selectedYear
+    );
+  };
+
+  const handleExportPdf = async () => {
+    const matchingReport = findMatchingReport();
+    if (!matchingReport) {
+      toast.error(`Nenhum relatório encontrado para ${getMonthLabel(selectedMonth)} / ${selectedYear}`);
+      return;
+    }
+
+    setIsExportingPdf(true);
+    try {
+      const result = await getReportWithActivitiesMutation.mutateAsync(matchingReport.id);
+      if (!result) {
+        toast.error('Não foi possível obter os dados do relatório.');
+        return;
+      }
+      generateReportPDF(result.report, result.activities);
+      toast.success('PDF gerado com sucesso!');
+    } catch {
+      toast.error('Erro ao gerar o PDF. Tente novamente.');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    const matchingReport = findMatchingReport();
+    if (!matchingReport) {
+      toast.error(`Nenhum relatório encontrado para ${getMonthLabel(selectedMonth)} / ${selectedYear}`);
+      return;
+    }
+
+    setIsExportingCsv(true);
+    try {
+      const result = await getReportWithActivitiesMutation.mutateAsync(matchingReport.id);
+      if (!result) {
+        toast.error('Não foi possível obter os dados do relatório.');
+        return;
+      }
+      const activitiesByReport = new Map([[result.report.id, result.activities]]);
+      generateExcelExport([result.report], activitiesByReport);
+      toast.success('CSV exportado com sucesso!');
+    } catch {
+      toast.error('Erro ao exportar o CSV. Tente novamente.');
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -211,6 +285,58 @@ export default function ReportsListPage() {
           <Plus className="h-4 w-4" />
           Novo Relatório
         </Button>
+      </div>
+
+      {/* Export Section */}
+      <div className="px-4 pt-4 pb-2">
+        <Card className="border-border/60 bg-muted/20">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Download className="h-4 w-4 text-primary" />
+                <span>Exportar Relatório Mensal</span>
+              </div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:ml-auto">
+                <MonthYearSelector
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  onMonthChange={setSelectedMonth}
+                  onYearChange={setSelectedYear}
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportPdf}
+                    disabled={isExportingPdf || isExportingCsv}
+                    className="flex items-center gap-1.5"
+                  >
+                    {isExportingPdf ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <FileText className="h-3.5 w-3.5" />
+                    )}
+                    PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportCsv}
+                    disabled={isExportingPdf || isExportingCsv}
+                    className="flex items-center gap-1.5"
+                  >
+                    {isExportingCsv ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                    )}
+                    CSV
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* List */}

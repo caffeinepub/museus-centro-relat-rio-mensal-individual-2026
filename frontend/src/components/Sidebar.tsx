@@ -71,7 +71,7 @@ export default function Sidebar({ isApproved = true }: SidebarProps) {
   const { clear } = useInternetIdentity();
   const queryClient = useQueryClient();
   const { data: userProfile } = useGetCallerUserProfile();
-  const isCoordinadorGeral = useIsCoordinadorGeral(userProfile);
+  const isCoordinadorGeral = useIsCoordinadorGeral();
 
   const handleLogout = async () => {
     await clear();

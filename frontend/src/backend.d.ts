@@ -50,6 +50,10 @@ export interface Report {
     sendDate?: Time;
 }
 export type ReportId = string;
+export interface ReportActivityExport {
+    report: Report;
+    activities: Array<Activity>;
+}
 export interface CoordinationDashboard {
     totalDedicatedHours: bigint;
     activitiesWithAccessibility: bigint;
@@ -73,6 +77,10 @@ export interface AudienceBreakdown {
     children: bigint;
     adults: bigint;
     youth: bigint;
+}
+export interface ProfessionalOption {
+    principal: Principal;
+    name: string;
 }
 export interface FullUserProfile {
     principal: Principal;
@@ -383,6 +391,12 @@ export interface backendInterface {
     getCallerUserRole(): Promise<UserRole>;
     getCoordinationDashboardWithFilter(filter: DashboardFilter): Promise<CoordinationDashboard>;
     getReport(reportId: ReportId): Promise<Report>;
+    /**
+     * / Export a report with all its activities.
+     * / Professionals can only export their own reports.
+     * / Coordinators and admins can export any report.
+     */
+    getReportWithActivities(reportId: ReportId): Promise<ReportActivityExport | null>;
     getReportsForUser(userId: Principal): Promise<Array<Report>>;
     getTotalGeneralAudience(queryType: AudienceQueryType): Promise<bigint>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
@@ -395,6 +409,11 @@ export interface backendInterface {
     listAllUserProfiles(): Promise<Array<FullUserProfile>>;
     listApprovals(): Promise<Array<UserApprovalInfo>>;
     listGoals(): Promise<Array<Goal>>;
+    /**
+     * / Returns all user profiles that are fully registered and approved,
+     * / including the corresponding principal.
+     */
+    listRegisteredProfessionals(): Promise<Array<ProfessionalOption>>;
     rejectUser(user: Principal): Promise<void>;
     requestApproval(): Promise<void>;
     /**

@@ -218,6 +218,7 @@ export type ProductRealised = { 'outro' : null } |
   { 'exposicaoMontada' : null } |
   { 'relatorioEntregue' : null } |
   { 'reuniaoRegistrada' : null };
+export interface ProfessionalOption { 'principal' : Principal, 'name' : string }
 export type Quantity = { 'one' : null } |
   { 'six' : null } |
   { 'ten' : null } |
@@ -257,6 +258,10 @@ export interface Report {
   'opportunityCategory' : string,
   'consolidatedGoals' : [] | [string],
   'sendDate' : [] | [Time],
+}
+export interface ReportActivityExport {
+  'report' : Report,
+  'activities' : Array<Activity>,
 }
 export interface ReportCreate {
   'difficulties' : string,
@@ -372,6 +377,15 @@ export interface _SERVICE {
     CoordinationDashboard
   >,
   'getReport' : ActorMethod<[ReportId], Report>,
+  /**
+   * / Export a report with all its activities.
+   * / Professionals can only export their own reports.
+   * / Coordinators and admins can export any report.
+   */
+  'getReportWithActivities' : ActorMethod<
+    [ReportId],
+    [] | [ReportActivityExport]
+  >,
   'getReportsForUser' : ActorMethod<[Principal], Array<Report>>,
   'getTotalGeneralAudience' : ActorMethod<[AudienceQueryType], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
@@ -384,6 +398,11 @@ export interface _SERVICE {
   'listAllUserProfiles' : ActorMethod<[], Array<FullUserProfile>>,
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
   'listGoals' : ActorMethod<[], Array<Goal>>,
+  /**
+   * / Returns all user profiles that are fully registered and approved,
+   * / including the corresponding principal.
+   */
+  'listRegisteredProfessionals' : ActorMethod<[], Array<ProfessionalOption>>,
   'rejectUser' : ActorMethod<[Principal], undefined>,
   'requestApproval' : ActorMethod<[], undefined>,
   /**

@@ -307,6 +307,10 @@ export const CoordinationDashboard = IDL.Record({
   'monthlyEvolution' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
   'totalActivitiesPerMuseum' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
 });
+export const ReportActivityExport = IDL.Record({
+  'report' : Report,
+  'activities' : IDL.Vec(Activity),
+});
 export const DateRange = IDL.Record({
   'startYear' : Year,
   'endMonth' : Month,
@@ -339,6 +343,10 @@ export const Goal = IDL.Record({
   'active' : IDL.Bool,
   'name' : IDL.Text,
   'description' : IDL.Opt(IDL.Text),
+});
+export const ProfessionalOption = IDL.Record({
+  'principal' : IDL.Principal,
+  'name' : IDL.Text,
 });
 export const ActivitySearchResult = IDL.Record({
   'id' : ActivityId,
@@ -397,6 +405,11 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getReport' : IDL.Func([ReportId], [Report], ['query']),
+  'getReportWithActivities' : IDL.Func(
+      [ReportId],
+      [IDL.Opt(ReportActivityExport)],
+      ['query'],
+    ),
   'getReportsForUser' : IDL.Func([IDL.Principal], [IDL.Vec(Report)], ['query']),
   'getTotalGeneralAudience' : IDL.Func(
       [AudienceQueryType],
@@ -414,6 +427,11 @@ export const idlService = IDL.Service({
   'listAllUserProfiles' : IDL.Func([], [IDL.Vec(FullUserProfile)], ['query']),
   'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
   'listGoals' : IDL.Func([], [IDL.Vec(Goal)], ['query']),
+  'listRegisteredProfessionals' : IDL.Func(
+      [],
+      [IDL.Vec(ProfessionalOption)],
+      ['query'],
+    ),
   'rejectUser' : IDL.Func([IDL.Principal], [], []),
   'requestApproval' : IDL.Func([], [], []),
   'reviewReport' : IDL.Func(
@@ -744,6 +762,10 @@ export const idlFactory = ({ IDL }) => {
     'monthlyEvolution' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
     'totalActivitiesPerMuseum' : IDL.Vec(IDL.Tuple(IDL.Text, IDL.Nat)),
   });
+  const ReportActivityExport = IDL.Record({
+    'report' : Report,
+    'activities' : IDL.Vec(Activity),
+  });
   const DateRange = IDL.Record({
     'startYear' : Year,
     'endMonth' : Month,
@@ -776,6 +798,10 @@ export const idlFactory = ({ IDL }) => {
     'active' : IDL.Bool,
     'name' : IDL.Text,
     'description' : IDL.Opt(IDL.Text),
+  });
+  const ProfessionalOption = IDL.Record({
+    'principal' : IDL.Principal,
+    'name' : IDL.Text,
   });
   const ActivitySearchResult = IDL.Record({
     'id' : ActivityId,
@@ -834,6 +860,11 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getReport' : IDL.Func([ReportId], [Report], ['query']),
+    'getReportWithActivities' : IDL.Func(
+        [ReportId],
+        [IDL.Opt(ReportActivityExport)],
+        ['query'],
+      ),
     'getReportsForUser' : IDL.Func(
         [IDL.Principal],
         [IDL.Vec(Report)],
@@ -855,6 +886,11 @@ export const idlFactory = ({ IDL }) => {
     'listAllUserProfiles' : IDL.Func([], [IDL.Vec(FullUserProfile)], ['query']),
     'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
     'listGoals' : IDL.Func([], [IDL.Vec(Goal)], ['query']),
+    'listRegisteredProfessionals' : IDL.Func(
+        [],
+        [IDL.Vec(ProfessionalOption)],
+        ['query'],
+      ),
     'rejectUser' : IDL.Func([IDL.Principal], [], []),
     'requestApproval' : IDL.Func([], [], []),
     'reviewReport' : IDL.Func(

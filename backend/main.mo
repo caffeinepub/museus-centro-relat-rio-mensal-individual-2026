@@ -347,6 +347,11 @@ actor {
     approvalStatus : UserApproval.ApprovalStatus;
   };
 
+  public type ProfessionalOption = {
+    principal : Principal;
+    name : Text;
+  };
+
   public type ActivitySearchResult = {
     id : ActivityId;
     activityName : Text;
@@ -387,6 +392,13 @@ actor {
     pcd : Nat;
   };
 
+  // ── Export Types ───────────────────────────────────────────────────────────
+
+  public type ReportActivityExport = {
+    report : Report;
+    activities : [Activity];
+  };
+
   // ── Constants ──────────────────────────────────────────────────────────────
 
   /// The only name allowed to hold the #coordination and #coordinator roles.
@@ -407,6 +419,32 @@ actor {
 
   var protocolCounter = 0;
   var goalIdCounter = 0;
+
+  // ── Export Functionality ────────────────────────────────────────────────────
+
+  /// Export a report with all its activities.
+  /// Professionals can only export their own reports.
+  /// Coordinators and admins can export any report.
+  public query ({ caller }) func getReportWithActivities(reportId : ReportId) : async ?ReportActivityExport {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can export reports");
+    };
+    let report = switch (reports.get(reportId)) {
+      case (?r) { r };
+      case (null) { return null };
+    };
+    // Ownership check: professionals can only export their own reports
+    if (not canRead(caller, report.authorId)) {
+      Runtime.trap("Unauthorized: Can only export own reports");
+    };
+    let acts = activities.values().toArray().filter(
+      func(a : Activity) : Bool { a.reportId == reportId }
+    );
+    ?{
+      report;
+      activities = acts;
+    };
+  };
 
   // ── Role helpers ───────────────────────────────────────────────────────────
 
@@ -581,6 +619,23 @@ actor {
       Runtime.trap("Unauthorized: Can only view own profile");
     };
     userProfiles.get(user);
+  };
+
+  /// Returns all user profiles that are fully registered and approved,
+  /// including the corresponding principal.
+  public query ({ caller }) func listRegisteredProfessionals() : async [ProfessionalOption] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can view professionals");
+    };
+
+    let professionalOptions = userProfiles.toArray().map(func((p, profile)) {
+      {
+        principal = p;
+        name = profile.name;
+      }
+    });
+
+    professionalOptions;
   };
 
   /// Save the caller's own profile.

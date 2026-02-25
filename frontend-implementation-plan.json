@@ -1,96 +1,56 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Add Approve Report button in Coordinator View and restore Activity fields/functionality",
+  "title": "Re-add Monthly Report Export Button (PDF + CSV) with Month/Year Selector",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Add 'Approve Report' button in Coordinator view (ApprovalsPage/ApprovalDetailView) for coordinators to approve submitted reports",
+      "summary": "Add a month/year selector component to the reports list page that defaults to the current month and year, allowing users to pick any month before triggering export",
       "acceptanceCriteria": [
-        "An 'Approve Report' button is visible in the Coordinator view (ApprovalsPage/ApprovalDetailView) for submitted reports",
-        "The button is only visible to users with coordinator or admin roles",
-        "Clicking the button triggers the approval action and updates the report status accordingly",
-        "The UI reflects the updated approval status after the action"
+        "A month selector dropdown and year selector (or combined month/year picker) is displayed near the export button.",
+        "The selector defaults to the current month and year on initial render.",
+        "The user can change the month and year before exporting.",
+        "The selected month/year is used to filter which report and activities are exported."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/ApprovalDetailView.tsx",
-          "operation": "modify",
-          "description": "Add an 'Aprovar Relatório' button that calls the reviewReport mutation with Status.approved when clicked. The button should be visible alongside the existing approval controls, use the authorization component's role-based access control to show only for coordinator/admin roles, and trigger the signature capture flow before submitting the approval. After successful approval, invalidate the relevant queries to refresh the UI. Verify the authorization component's usage instructions before implementing."
+          "path": "frontend/src/components/MonthYearSelector.tsx",
+          "operation": "create",
+          "description": "Create a reusable month/year selector component using shadcn/ui Select components. The component should accept value/onChange props for controlled state, default to the current month and year, and provide dropdowns for both month (using Month enum) and year (supporting years 2024-2027). Use the getMonthLabel utility from frontend/src/utils/labels.ts for Portuguese month names."
         },
         {
-          "path": "frontend/src/pages/ApprovalsPage.tsx",
+          "path": "frontend/src/pages/ReportsListPage.tsx",
           "operation": "modify",
-          "description": "Ensure that approved reports display their updated status correctly in the list view after the approval action completes. Update the filtering logic if needed to allow coordinators to see approved reports in addition to submitted ones. Use the authorization component to verify coordinator/admin roles for displaying approval controls."
+          "description": "Add state management for selected month and year (defaulting to current month/year using new Date()). Import and render the MonthYearSelector component above the reports list, positioned near where the export buttons will be added in REQ-2. Pass the selected month/year state to the component and update local state on change."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Restore all activity-related fields and functionality including the 'Add Activity' button, ActivitiesList component rendering, and ActivityFormPage navigation",
+      "summary": "Add PDF and CSV export buttons to the reports list page that export the authenticated user's report and activities for the selected month/year using existing pdfGenerator and excelGenerator utilities",
       "acceptanceCriteria": [
-        "The 'Add Activity' button appears on each report detail/list view for editable reports",
-        "The ActivitiesList component renders activity cards with all fields (status badge, hours, audience, classification, etc.)",
-        "Clicking 'Add Activity' navigates to ActivityFormPage pre-linked to the correct report",
-        "Activities saved for a report are fetched and displayed correctly under that report",
-        "All activity form fields (classification, status, audience profiles, products, evidence, accessibility, quantitative goals) are present and functional"
+        "An 'Export Report' button (or button group) is visible on the reports list page for the logged-in user.",
+        "Clicking the PDF export option generates and downloads a PDF containing the user's report metadata and all associated activities for the selected month/year.",
+        "Clicking the CSV/Excel export option generates and downloads a CSV file containing the user's report metadata and all associated activities for the selected month/year.",
+        "If no report exists for the selected month/year, a user-friendly message is shown (e.g., 'No report found for this period').",
+        "The export is scoped to the currently authenticated user's own data only.",
+        "Both export options use the selected month/year from the month/year selector (REQ-1)."
       ],
       "file_operations": [
-        {
-          "path": "frontend/src/components/ActivitiesList.tsx",
-          "operation": "modify",
-          "description": "Verify that the ActivitiesList component correctly renders all activity cards with status badges, hours, audience breakdown (children, youth, adults, elderly, PCD), classification, and other metadata. Ensure the 'Nova Atividade' button is visible for reports in draft or requiresAdjustment status and links to ActivityFormPage with the reportId pre-filled. If any fields are missing or not displaying, restore them from the Activity interface in backend.d.ts. Use the authorization component to control button visibility based on user role and report ownership."
-        },
-        {
-          "path": "frontend/src/pages/ActivityFormPage.tsx",
-          "operation": "modify",
-          "description": "Ensure all activity form fields are present and functional: classification (goalLinked, extra, routine), status (notStarted, completed, cancelled, rescheduled, submitted), audience profiles (children, youth, adults, elderly, PCD), productRealised, evidences array, accessibilityOptions array, quantitativeGoal, goalStatus, goalNumber, goalDescription, achievedResult, dedicatedHours, hoursNotApplicable, hadPartnership, partnerName, partnerType, partnershipsInvolved, and file uploads (using the blob-storage component for attachment handling). Verify that the form correctly initializes when navigating from a report and that saved activities are linked to the correct reportId. Verify the blob-storage component's usage instructions for file upload handling before implementing."
-        },
         {
           "path": "frontend/src/pages/ReportsListPage.tsx",
           "operation": "modify",
-          "description": "Ensure that each report card or row in the reports list includes a link or section to view/manage associated activities. If the activities section was removed, restore it so users can see activity counts and access the ActivitiesList for each report. Use the authorization component to control edit/delete permissions based on user role and report status."
+          "description": "Add export button group (PDF and CSV buttons) below the MonthYearSelector component. Implement onClick handlers that: 1) Filter the current user's reports by the selected month and year (using the reports array from useGetReportsForUser), 2) If no matching report is found, display a toast notification ('No report found for this period'), 3) If found, fetch activities via useGetActivitiesForReport, 4) For PDF: call the pdfGenerator utility from frontend/src/utils/pdfGenerator.ts with the report and activities, 5) For CSV: call the excelGenerator utility from frontend/src/utils/excelGenerator.ts with an array containing the single report and its activities. Use shadcn/ui Button components with appropriate icons (FileText for PDF, FileSpreadsheet for CSV) and loading states during export generation."
         },
         {
-          "path": "frontend/src/pages/ReportFormPage.tsx",
+          "path": "frontend/src/utils/pdfGenerator.ts",
           "operation": "modify",
-          "description": "Verify that the report form page includes a section or navigation link to manage activities for the current report. If activities were previously accessible from this page via a tab or embedded list, restore that functionality. Ensure the 'Nova Atividade' button is wired and navigates to ActivityFormPage with the reportId parameter. Use the authorization component to ensure only report authors or coordinators/admins can add activities."
-        }
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "summary": "Ensure the application loads and renders correctly without blank screen or crash on startup",
-      "acceptanceCriteria": [
-        "The application loads successfully without a blank screen or unhandled runtime error",
-        "All pages navigate correctly without crashing",
-        "No console errors related to missing components or broken imports on initial load"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/App.tsx",
-          "operation": "modify",
-          "description": "Audit all route definitions and component imports to ensure no missing or broken imports exist. Verify that all route components (LoginPage, DashboardPage, ReportsListPage, ReportFormPage, ActivityFormPage, ApprovalsPage, UserManagementPage, ConsolidatedMuseumPage, PendingApprovalPage) are correctly imported and registered. Add error boundaries or fallback UI if needed to prevent blank screens on component errors. Ensure the ProfileSetupModal and authentication flow do not block the initial render. Use the authorization component's error handling guidelines for graceful authorization failures."
+          "description": "Review the existing pdfGenerator implementation to ensure it accepts a single report object and its activities array, and verify it handles all activity fields correctly. No structural changes needed if the function signature already matches this requirement; otherwise, ensure the function can be called with (report: Report, activities: Activity[]) parameters."
         },
         {
-          "path": "frontend/src/components/ActivitiesList.tsx",
+          "path": "frontend/src/utils/excelGenerator.ts",
           "operation": "modify",
-          "description": "Check for any missing imports, undefined variables, or incorrect prop types that could cause runtime errors. Ensure the component handles empty activity lists gracefully and does not crash when activities are undefined or null. Add defensive checks for optional fields in the Activity type."
-        },
-        {
-          "path": "frontend/src/pages/ActivityFormPage.tsx",
-          "operation": "modify",
-          "description": "Verify all enum imports and label mapping functions are correctly imported from utils/labels.ts. Ensure no undefined references exist for classification, status, audienceRange, productRealised, evidenceType, accessibilityOption, or goalStatus enums. Add fallback values or validation to prevent form crashes on unexpected data. Verify the blob-storage component integration does not cause crashes during file upload."
-        },
-        {
-          "path": "frontend/src/components/ApprovalDetailView.tsx",
-          "operation": "modify",
-          "description": "Ensure the component handles missing or null report data gracefully without crashing. Verify that the signature capture component (SignatureCanvas) is correctly imported and used. Add error handling for the reviewReport mutation to display user-friendly error messages instead of crashing the UI."
-        },
-        {
-          "path": "frontend/src/pages/ApprovalsPage.tsx",
-          "operation": "modify",
-          "description": "Check for any missing imports or incorrect query hooks that could cause the page to fail on load. Ensure the page handles empty report lists and loading states correctly. Verify that the ApprovalDetailView component is correctly imported and rendered. Use the authorization component to ensure only coordinators/admins can access this page, preventing unauthorized access errors."
+          "description": "Review the existing excelGenerator implementation to ensure it can handle exporting a single user's report and activities. The function should accept an array of ReportActivityExport objects. Verify it includes all activity fields in the CSV output with Portuguese headers from the labels utility. No structural changes needed if the function already supports this use case."
         }
       ]
     }

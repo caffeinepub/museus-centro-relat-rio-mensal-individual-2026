@@ -1,27 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import {
   useCreateActivity,
   useUpdateActivity,
-  useGetActivity,
-  useGetCallerUserProfile,
-  useSearchActivities,
+  useActivity,
   useGoals,
+  useListRegisteredProfessionals,
 } from '../hooks/useQueries';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import {
-  ActivityCreate,
-  Activity,
   ActivityStatus,
   Classification,
   GoalStatus,
   AccessibilityOption,
   EvidenceType,
   ProductRealised,
-  AudienceRange,
   Quantity,
+  AudienceRange,
   MuseumLocation,
-  ExternalBlob,
 } from '../backend';
 import {
   activityStatusLabel,
@@ -30,109 +39,30 @@ import {
   accessibilityOptionLabel,
   evidenceTypeLabel,
   productRealisedLabel,
-  audienceRangeLabel,
   quantityLabel,
+  audienceRangeLabel,
   getMuseumLabel,
-  MUSEUM_LOCATIONS,
 } from '../utils/labels';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Save, Loader2, Search, X, Upload, FileText } from 'lucide-react';
 
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const ALL_ACTIVITY_STATUSES: ActivityStatus[] = [
-  ActivityStatus.notStarted,
-  ActivityStatus.submitted,
-  ActivityStatus.completed,
-  ActivityStatus.rescheduled,
-  ActivityStatus.cancelled,
-];
-
-const ALL_CLASSIFICATIONS: Classification[] = [
-  Classification.goalLinked,
-  Classification.routine,
-  Classification.extra,
-];
-
-const ALL_GOAL_STATUSES: GoalStatus[] = [
-  GoalStatus.inProgress,
-  GoalStatus.partiallyCumplied,
-  GoalStatus.achieved,
-  GoalStatus.exceeded,
-];
-
-const ALL_ACCESSIBILITY_OPTIONS: AccessibilityOption[] = [
-  AccessibilityOption.none,
-  AccessibilityOption.libras,
-  AccessibilityOption.audioDescription,
-  AccessibilityOption.tactileMaterial,
-  AccessibilityOption.other,
-];
-
-const ALL_EVIDENCE_TYPES: EvidenceType[] = [
-  EvidenceType.photos,
-  EvidenceType.attendanceList,
-  EvidenceType.report,
-  EvidenceType.graphicMaterial,
-  EvidenceType.other,
-];
-
-const ALL_PRODUCTS: ProductRealised[] = [
-  ProductRealised.naoSeAplica,
-  ProductRealised.oficinaRealizada,
-  ProductRealised.relatorioEntregue,
-  ProductRealised.exposicaoMontada,
-  ProductRealised.eventoExecutado,
-  ProductRealised.planoDeAcaoElaborado,
-  ProductRealised.materialGraficoProduzido,
-  ProductRealised.conteudoDigitalPublicado,
-  ProductRealised.pesquisaConcluida,
-  ProductRealised.reuniaoRegistrada,
-  ProductRealised.outro,
-];
-
-const ALL_AUDIENCE_RANGES: AudienceRange[] = [
-  AudienceRange.naoSeAplica,
-  AudienceRange.zeroToTwenty,
-  AudienceRange.twentyOneToFifty,
-  AudienceRange.fiftyOneToHundred,
-  AudienceRange.hundredOneToTwoHundred,
-  AudienceRange.twoHundredOneToFiveHundred,
-  AudienceRange.aboveFiveHundred,
-];
-
-const ALL_QUANTITIES: Quantity[] = [
-  Quantity.one,
-  Quantity.two,
-  Quantity.three,
-  Quantity.four,
-  Quantity.five,
-  Quantity.six,
-  Quantity.seven,
-  Quantity.eight,
-  Quantity.nine,
-  Quantity.ten,
-  Quantity.maisDeDez,
-];
-
-// ── Form State ─────────────────────────────────────────────────────────────
-
-interface ActivityFormState {
+interface ActivityFormData {
   activityName: string;
   actionType: string;
-  museum: MuseumLocation;
+  professionalName: string;
   date: string;
-  classification: Classification;
+  startTime: string;
+  endTime: string;
+  museum: MuseumLocation | '';
   status: ActivityStatus;
+  classification: Classification;
+  executedDescription: string;
+  achievedResults: string;
+  qualitativeAssessment: string;
+  totalAudience: number;
+  children: number;
+  elderly: number;
+  pcd: number;
+  youth: number;
+  adults: number;
   dedicatedHours: string;
   hoursNotApplicable: boolean;
   goalNumber: string;
@@ -140,837 +70,755 @@ interface ActivityFormState {
   plannedIndicator: string;
   quantitativeGoal: string;
   achievedResult: string;
-  contributionPercent: string;
   goalStatus: GoalStatus | '';
   technicalJustification: string;
-  totalAudience: string;
-  children: string;
-  youth: string;
-  adults: string;
-  elderly: string;
-  pcd: string;
-  audienceRange: AudienceRange;
-  accessibilityOptions: AccessibilityOption[];
   hadPartnership: boolean;
   partnerName: string;
   partnerType: string;
-  partnershipsInvolved: string;
   objective: string;
-  executedDescription: string;
-  achievedResults: string;
-  qualitativeAssessment: string;
+  accessibilityOptions: AccessibilityOption[];
   evidences: EvidenceType[];
-  attachmentsPrefix: string;
   productRealised: ProductRealised;
   quantity: Quantity | '';
+  audienceRange: AudienceRange;
+  partnershipsInvolved: string;
   cancellationReason: string;
   linkedActivityId: string;
 }
 
-function getDefaultFormState(): ActivityFormState {
-  return {
-    activityName: '',
-    actionType: '',
-    museum: MuseumLocation.equipePrincipal,
-    date: new Date().toISOString().split('T')[0],
-    classification: Classification.routine,
-    status: ActivityStatus.notStarted,
-    dedicatedHours: '',
-    hoursNotApplicable: false,
-    goalNumber: '',
-    goalDescription: '',
-    plannedIndicator: '',
-    quantitativeGoal: '',
-    achievedResult: '',
-    contributionPercent: '',
-    goalStatus: '',
-    technicalJustification: '',
-    totalAudience: '0',
-    children: '0',
-    youth: '0',
-    adults: '0',
-    elderly: '0',
-    pcd: '0',
-    audienceRange: AudienceRange.naoSeAplica,
-    accessibilityOptions: [AccessibilityOption.none],
-    hadPartnership: false,
-    partnerName: '',
-    partnerType: '',
-    partnershipsInvolved: '',
-    objective: '',
-    executedDescription: '',
-    achievedResults: '',
-    qualitativeAssessment: '',
-    evidences: [],
-    attachmentsPrefix: '',
-    productRealised: ProductRealised.naoSeAplica,
-    quantity: '',
-    cancellationReason: '',
-    linkedActivityId: '',
-  };
-}
+const defaultFormData: ActivityFormData = {
+  activityName: '',
+  actionType: '',
+  professionalName: '',
+  date: '',
+  startTime: '',
+  endTime: '',
+  museum: '',
+  status: ActivityStatus.notStarted,
+  classification: Classification.routine,
+  executedDescription: '',
+  achievedResults: '',
+  qualitativeAssessment: '',
+  totalAudience: 0,
+  children: 0,
+  elderly: 0,
+  pcd: 0,
+  youth: 0,
+  adults: 0,
+  dedicatedHours: '',
+  hoursNotApplicable: true,
+  goalNumber: '',
+  goalDescription: '',
+  plannedIndicator: '',
+  quantitativeGoal: '',
+  achievedResult: '',
+  goalStatus: '',
+  technicalJustification: '',
+  hadPartnership: false,
+  partnerName: '',
+  partnerType: '',
+  objective: '',
+  accessibilityOptions: [],
+  evidences: [],
+  productRealised: ProductRealised.naoSeAplica,
+  quantity: '',
+  audienceRange: AudienceRange.naoSeAplica,
+  partnershipsInvolved: '',
+  cancellationReason: '',
+  linkedActivityId: '',
+};
 
-// ── Component ──────────────────────────────────────────────────────────────
+const ACTION_TYPE_OPTIONS = [
+  'Educativo',
+  'Exposição',
+  'Catálogo',
+  'Oficina',
+  'Outros',
+];
+
+const MUSEUM_OPTIONS: MuseumLocation[] = [
+  MuseumLocation.equipePrincipal,
+  MuseumLocation.comunicacao,
+  MuseumLocation.administracao,
+  MuseumLocation.programacao,
+  MuseumLocation.producaoGeral,
+  MuseumLocation.coordenacao,
+];
 
 export default function ActivityFormPage() {
   const navigate = useNavigate();
-  const params = useParams({ strict: false }) as { activityId?: string };
-  const search = useSearch({ strict: false }) as { reportId?: string };
+  const { activityId } = useParams({ strict: false }) as { activityId?: string };
+  const searchParams = useSearch({ strict: false }) as { reportId?: string };
+  const reportId = searchParams?.reportId;
 
-  const activityId = params.activityId;
-  const reportId = search.reportId;
-  const isEditing = !!activityId && activityId !== 'new';
+  const isEditing = !!activityId;
 
-  const { identity } = useInternetIdentity();
-  const { data: userProfile } = useGetCallerUserProfile();
-  const { data: existingActivity, isLoading: activityLoading } = useGetActivity(
-    isEditing ? activityId! : undefined
+  const { data: existingActivity, isLoading: loadingActivity } = useActivity(
+    isEditing ? activityId : undefined
   );
+  const { data: goals } = useGoals();
+  const { data: professionals, isLoading: loadingProfessionals } = useListRegisteredProfessionals();
 
-  const createMutation = useCreateActivity();
-  const updateMutation = useUpdateActivity();
+  const createActivity = useCreateActivity();
+  const updateActivity = useUpdateActivity();
 
-  const [form, setForm] = useState<ActivityFormState>(getDefaultFormState());
-  const [uploadedFiles, setUploadedFiles] = useState<ExternalBlob[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [formData, setFormData] = useState<ActivityFormData>(defaultFormData);
 
-  // Activity search for deduplication
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showSearchResults, setShowSearchResults] = useState(false);
-  const { data: searchResults } = useSearchActivities(searchTerm);
-
-  // Populate form when editing
   useEffect(() => {
     if (existingActivity && isEditing) {
-      setForm({
-        activityName: existingActivity.activityName,
-        actionType: existingActivity.actionType,
-        museum: existingActivity.museum,
-        date: new Date(Number(existingActivity.date) / 1_000_000).toISOString().split('T')[0],
-        classification: existingActivity.classification,
-        status: existingActivity.status,
-        dedicatedHours: existingActivity.dedicatedHours != null ? existingActivity.dedicatedHours.toString() : '',
-        hoursNotApplicable: existingActivity.hoursNotApplicable,
-        goalNumber: existingActivity.goalNumber != null ? existingActivity.goalNumber.toString() : '',
-        goalDescription: existingActivity.goalDescription ?? '',
-        plannedIndicator: existingActivity.plannedIndicator ?? '',
-        quantitativeGoal: existingActivity.quantitativeGoal != null ? existingActivity.quantitativeGoal.toString() : '',
-        achievedResult: existingActivity.achievedResult != null ? existingActivity.achievedResult.toString() : '',
-        contributionPercent: existingActivity.contributionPercent != null ? existingActivity.contributionPercent.toString() : '',
-        goalStatus: existingActivity.goalStatus ?? '',
-        technicalJustification: existingActivity.technicalJustification ?? '',
-        totalAudience: existingActivity.totalAudience.toString(),
-        children: existingActivity.children.toString(),
-        youth: existingActivity.youth.toString(),
-        adults: existingActivity.adults.toString(),
-        elderly: existingActivity.elderly.toString(),
-        pcd: existingActivity.pcd.toString(),
-        audienceRange: existingActivity.audienceRange,
-        accessibilityOptions: existingActivity.accessibilityOptions.length > 0
-          ? existingActivity.accessibilityOptions
-          : [AccessibilityOption.none],
-        hadPartnership: existingActivity.hadPartnership,
-        partnerName: existingActivity.partnerName ?? '',
-        partnerType: existingActivity.partnerType ?? '',
-        partnershipsInvolved: existingActivity.partnershipsInvolved ?? '',
-        objective: existingActivity.objective ?? '',
-        executedDescription: existingActivity.executedDescription,
-        achievedResults: existingActivity.achievedResults,
-        qualitativeAssessment: existingActivity.qualitativeAssessment,
-        evidences: existingActivity.evidences,
-        attachmentsPrefix: existingActivity.attachmentsPrefix,
-        productRealised: existingActivity.productRealised,
-        quantity: existingActivity.quantity ?? '',
-        cancellationReason: existingActivity.cancellationReason ?? '',
-        linkedActivityId: existingActivity.linkedActivityId ?? '',
+      const dateObj = existingActivity.date
+        ? new Date(Number(existingActivity.date) / 1_000_000)
+        : null;
+      const dateStr = dateObj ? dateObj.toISOString().split('T')[0] : '';
+
+      setFormData({
+        activityName: existingActivity.activityName || '',
+        actionType: existingActivity.actionType || '',
+        professionalName: existingActivity.actionType || '',
+        date: dateStr,
+        startTime: '',
+        endTime: '',
+        museum: existingActivity.museum || '',
+        status: existingActivity.status || ActivityStatus.notStarted,
+        classification: existingActivity.classification || Classification.routine,
+        executedDescription: existingActivity.executedDescription || '',
+        achievedResults: existingActivity.achievedResults || '',
+        qualitativeAssessment: existingActivity.qualitativeAssessment || '',
+        totalAudience: Number(existingActivity.totalAudience) || 0,
+        children: Number(existingActivity.children) || 0,
+        elderly: Number(existingActivity.elderly) || 0,
+        pcd: Number(existingActivity.pcd) || 0,
+        youth: Number(existingActivity.youth) || 0,
+        adults: Number(existingActivity.adults) || 0,
+        dedicatedHours: existingActivity.dedicatedHours != null
+          ? String(existingActivity.dedicatedHours)
+          : '',
+        hoursNotApplicable: existingActivity.hoursNotApplicable ?? true,
+        goalNumber: existingActivity.goalNumber != null
+          ? String(existingActivity.goalNumber)
+          : '',
+        goalDescription: existingActivity.goalDescription || '',
+        plannedIndicator: existingActivity.plannedIndicator || '',
+        quantitativeGoal: existingActivity.quantitativeGoal != null
+          ? String(existingActivity.quantitativeGoal)
+          : '',
+        achievedResult: existingActivity.achievedResult != null
+          ? String(existingActivity.achievedResult)
+          : '',
+        goalStatus: existingActivity.goalStatus || '',
+        technicalJustification: existingActivity.technicalJustification || '',
+        hadPartnership: existingActivity.hadPartnership || false,
+        partnerName: existingActivity.partnerName || '',
+        partnerType: existingActivity.partnerType || '',
+        objective: existingActivity.objective || '',
+        accessibilityOptions: existingActivity.accessibilityOptions || [],
+        evidences: existingActivity.evidences || [],
+        productRealised: existingActivity.productRealised || ProductRealised.naoSeAplica,
+        quantity: existingActivity.quantity || '',
+        audienceRange: existingActivity.audienceRange || AudienceRange.naoSeAplica,
+        partnershipsInvolved: existingActivity.partnershipsInvolved || '',
+        cancellationReason: existingActivity.cancellationReason || '',
+        linkedActivityId: existingActivity.linkedActivityId || '',
       });
     }
   }, [existingActivity, isEditing]);
 
-  // Populate museum from profile on create
-  useEffect(() => {
-    if (!isEditing && userProfile) {
-      setForm((prev) => ({ ...prev, museum: userProfile.museum }));
-    }
-  }, [userProfile, isEditing]);
-
-  const handleChange = (field: keyof ActivityFormState, value: unknown) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const updateField = <K extends keyof ActivityFormData>(
+    field: K,
+    value: ActivityFormData[K]
+  ) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const toggleArrayItem = <T,>(arr: T[], item: T): T[] => {
-    return arr.includes(item) ? arr.filter((i) => i !== item) : [...arr, item];
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setIsUploading(true);
-    const newBlobs: ExternalBlob[] = [];
-    for (const file of Array.from(files)) {
-      const buf = await file.arrayBuffer();
-      const blob = ExternalBlob.fromBytes(new Uint8Array(buf)).withUploadProgress((pct) => {
-        setUploadProgress(pct);
-      });
-      newBlobs.push(blob);
-    }
-    setUploadedFiles((prev) => [...prev, ...newBlobs]);
-    setIsUploading(false);
-    setUploadProgress(0);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  const toggleArrayItem = <T,>(array: T[], item: T): T[] => {
+    return array.includes(item) ? array.filter((i) => i !== item) : [...array, item];
   };
 
   const handleSave = async () => {
-    const effectiveReportId = isEditing ? existingActivity?.reportId ?? reportId ?? '' : reportId ?? '';
-    if (!effectiveReportId) {
-      alert('ID do relatório não encontrado.');
-      return;
+    if (!reportId && !isEditing) return;
+
+    const targetReportId = isEditing
+      ? existingActivity?.reportId || reportId || ''
+      : reportId || '';
+
+    // Parse date
+    let dateTimestamp: bigint = BigInt(0);
+    if (formData.date) {
+      const dateStr = formData.startTime
+        ? `${formData.date}T${formData.startTime}:00`
+        : `${formData.date}T00:00:00`;
+      dateTimestamp = BigInt(new Date(dateStr).getTime()) * BigInt(1_000_000);
     }
 
-    const dateMs = new Date(form.date).getTime();
-    const dateNs = BigInt(dateMs) * BigInt(1_000_000);
+    // Resolve hours
+    let dedicatedHours: bigint | undefined = undefined;
+    let hoursNotApplicable = formData.hoursNotApplicable;
 
-    const activityData: ActivityCreate = {
+    if (!hoursNotApplicable && formData.dedicatedHours !== '') {
+      dedicatedHours = BigInt(parseInt(formData.dedicatedHours, 10) || 0);
+    } else {
+      hoursNotApplicable = true;
+      dedicatedHours = undefined;
+    }
+
+    const activityPayload = {
       id: isEditing ? activityId! : '',
-      reportId: effectiveReportId,
-      date: dateNs,
-      museum: form.museum,
-      actionType: form.actionType,
-      activityName: form.activityName,
-      dedicatedHours: form.hoursNotApplicable
-        ? undefined
-        : form.dedicatedHours
-        ? BigInt(parseInt(form.dedicatedHours))
+      reportId: targetReportId,
+      date: dateTimestamp,
+      museum: formData.museum || MuseumLocation.equipePrincipal,
+      actionType: formData.actionType || '',
+      activityName: formData.activityName || '',
+      dedicatedHours: dedicatedHours,
+      hoursNotApplicable,
+      classification: formData.classification,
+      goalNumber: formData.goalNumber ? BigInt(parseInt(formData.goalNumber, 10)) : undefined,
+      goalDescription: formData.goalDescription || undefined,
+      plannedIndicator: formData.plannedIndicator || undefined,
+      quantitativeGoal: formData.quantitativeGoal
+        ? BigInt(parseInt(formData.quantitativeGoal, 10))
         : undefined,
-      hoursNotApplicable: form.hoursNotApplicable,
-      classification: form.classification,
-      goalNumber: form.goalNumber ? BigInt(parseInt(form.goalNumber)) : undefined,
-      goalDescription: form.goalDescription || undefined,
-      plannedIndicator: form.plannedIndicator || undefined,
-      quantitativeGoal: form.quantitativeGoal ? BigInt(parseInt(form.quantitativeGoal)) : undefined,
-      achievedResult: form.achievedResult ? BigInt(parseInt(form.achievedResult)) : undefined,
-      contributionPercent: form.contributionPercent ? parseFloat(form.contributionPercent) : undefined,
-      goalStatus: form.goalStatus || undefined,
-      technicalJustification: form.technicalJustification || undefined,
-      totalAudience: BigInt(parseInt(form.totalAudience) || 0),
-      children: BigInt(parseInt(form.children) || 0),
-      youth: BigInt(parseInt(form.youth) || 0),
-      adults: BigInt(parseInt(form.adults) || 0),
-      elderly: BigInt(parseInt(form.elderly) || 0),
-      pcd: BigInt(parseInt(form.pcd) || 0),
-      accessibilityOptions: form.accessibilityOptions,
-      hadPartnership: form.hadPartnership,
-      partnerName: form.partnerName || undefined,
-      partnerType: form.partnerType || undefined,
-      objective: form.objective || undefined,
-      executedDescription: form.executedDescription,
-      achievedResults: form.achievedResults,
-      qualitativeAssessment: form.qualitativeAssessment,
-      evidences: form.evidences,
-      attachmentsPrefix: form.attachmentsPrefix,
-      productRealised: form.productRealised,
-      quantity: form.quantity || undefined,
-      audienceRange: form.audienceRange,
-      partnershipsInvolved: form.partnershipsInvolved || undefined,
-      status: form.status,
-      cancellationReason: form.cancellationReason || undefined,
+      achievedResult: formData.achievedResult
+        ? BigInt(parseInt(formData.achievedResult, 10))
+        : undefined,
+      contributionPercent: undefined,
+      goalStatus: formData.goalStatus || undefined,
+      technicalJustification: formData.technicalJustification || undefined,
+      totalAudience: BigInt(formData.totalAudience),
+      children: BigInt(formData.children),
+      youth: BigInt(formData.youth),
+      adults: BigInt(formData.adults),
+      elderly: BigInt(formData.elderly),
+      pcd: BigInt(formData.pcd),
+      accessibilityOptions: formData.accessibilityOptions,
+      hadPartnership: formData.hadPartnership,
+      partnerName: formData.partnerName || undefined,
+      partnerType: formData.partnerType || undefined,
+      objective: formData.objective || undefined,
+      executedDescription: formData.executedDescription || '',
+      achievedResults: formData.achievedResults || '',
+      qualitativeAssessment: formData.qualitativeAssessment || '',
+      evidences: formData.evidences,
+      attachmentsPrefix: '',
+      productRealised: formData.productRealised,
+      quantity: formData.quantity || undefined,
+      audienceRange: formData.audienceRange,
+      partnershipsInvolved: formData.partnershipsInvolved || undefined,
+      status: formData.status,
+      cancellationReason: formData.cancellationReason || undefined,
       files: [],
-      linkedActivityId: form.linkedActivityId || undefined,
+      linkedActivityId: formData.linkedActivityId || undefined,
     };
 
-    if (isEditing && existingActivity) {
-      const updatedActivity: Activity = {
-        ...existingActivity,
-        ...activityData,
-        id: activityId!,
-      };
-      await updateMutation.mutateAsync({ activityId: activityId!, activity: updatedActivity });
-    } else {
-      await createMutation.mutateAsync(activityData);
+    try {
+      if (isEditing) {
+        await updateActivity.mutateAsync({
+          activityId: activityId!,
+          activity: activityPayload as any,
+        });
+      } else {
+        await createActivity.mutateAsync(activityPayload as any);
+      }
+      navigate({ to: `/reports/${targetReportId}` });
+    } catch (error) {
+      console.error('Error saving activity:', error);
     }
-
-    navigate({ to: '/reports' });
   };
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isSaving = createActivity.isPending || updateActivity.isPending;
 
-  if (isEditing && activityLoading) {
+  if (loadingActivity && isEditing) {
     return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate({ to: '/reports' })}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="font-semibold text-foreground">
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate({ to: reportId ? `/reports/${reportId}` : '/reports' })}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">
             {isEditing ? 'Editar Atividade' : 'Nova Atividade'}
           </h1>
+          <p className="text-muted-foreground text-sm">
+            {isEditing ? 'Atualize os dados da atividade' : 'Preencha os dados da nova atividade'}
+          </p>
         </div>
-        <Button onClick={handleSave} disabled={isSaving} size="sm">
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-          Salvar
-        </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Activity Search / Deduplication */}
-        {!isEditing && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Buscar Atividade Existente</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome de atividade..."
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setShowSearchResults(true);
-                  }}
-                  className="pl-9"
-                />
-              </div>
-              {showSearchResults && searchResults && searchResults.length > 0 && (
-                <div className="mt-2 border border-border rounded-lg overflow-hidden">
-                  {searchResults.slice(0, 5).map((result) => (
-                    <button
-                      key={result.id}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors border-b border-border last:border-0"
-                      onClick={() => {
-                        handleChange('linkedActivityId', result.id);
-                        handleChange('activityName', result.activityName);
-                        setShowSearchResults(false);
-                        setSearchTerm('');
-                      }}
-                    >
-                      {result.activityName}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {form.linkedActivityId && (
-                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>Vinculada a: {form.linkedActivityId}</span>
-                  <button onClick={() => handleChange('linkedActivityId', '')} className="text-destructive">
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Basic Info */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Informações Básicas</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <Label className="text-xs">Nome da Atividade *</Label>
+      {/* Basic Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Informações Básicas</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="activityName">Nome da Atividade</Label>
               <Input
-                value={form.activityName}
-                onChange={(e) => handleChange('activityName', e.target.value)}
-                className="mt-1"
-                placeholder="Ex: Oficina de Arte"
+                id="activityName"
+                value={formData.activityName}
+                onChange={(e) => updateField('activityName', e.target.value)}
+                placeholder="Nome da atividade"
               />
             </div>
 
-            <div>
-              <Label className="text-xs">Tipo de Ação</Label>
-              <Input
-                value={form.actionType}
-                onChange={(e) => handleChange('actionType', e.target.value)}
-                className="mt-1"
-                placeholder="Ex: Educativo, Cultural..."
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Data</Label>
-                <Input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => handleChange('date', e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Museu</Label>
-                <Select
-                  value={form.museum}
-                  onValueChange={(v) => handleChange('museum', v as MuseumLocation)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MUSEUM_LOCATIONS.map((loc) => (
-                      <SelectItem key={loc} value={loc}>
-                        {getMuseumLabel(loc)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Classificação *</Label>
-                <Select
-                  value={form.classification}
-                  onValueChange={(v) => handleChange('classification', v as Classification)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ALL_CLASSIFICATIONS.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {classificationLabel(c)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Status *</Label>
-                <Select
-                  value={form.status}
-                  onValueChange={(v) => handleChange('status', v as ActivityStatus)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ALL_ACTIVITY_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {activityStatusLabel(s)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Cancellation reason */}
-            {form.status === ActivityStatus.cancelled && (
-              <div>
-                <Label className="text-xs">Motivo do Cancelamento *</Label>
-                <Textarea
-                  value={form.cancellationReason}
-                  onChange={(e) => handleChange('cancellationReason', e.target.value)}
-                  rows={2}
-                  className="mt-1"
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Hours */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Horas Dedicadas</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={form.hoursNotApplicable}
-                onCheckedChange={(v) => {
-                  handleChange('hoursNotApplicable', v);
-                  if (v) handleChange('dedicatedHours', '');
-                }}
-              />
-              <Label className="text-xs">Não se aplica (horas)</Label>
-            </div>
-            {!form.hoursNotApplicable && (
-              <div>
-                <Label className="text-xs">Horas dedicadas à atividade</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.dedicatedHours}
-                  onChange={(e) => handleChange('dedicatedHours', e.target.value)}
-                  className="mt-1"
-                  placeholder="Ex: 4"
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Goal Fields (when goalLinked) */}
-        {form.classification === Classification.goalLinked && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Informações da Meta</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Número da Meta</Label>
-                  <Input
-                    type="number"
-                    value={form.goalNumber}
-                    onChange={(e) => handleChange('goalNumber', e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Status da Meta</Label>
-                  <Select
-                    value={form.goalStatus}
-                    onValueChange={(v) => handleChange('goalStatus', v as GoalStatus)}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ALL_GOAL_STATUSES.map((gs) => (
-                        <SelectItem key={gs} value={gs}>
-                          {goalStatusLabel(gs)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs">Descrição da Meta</Label>
-                <Textarea
-                  value={form.goalDescription}
-                  onChange={(e) => handleChange('goalDescription', e.target.value)}
-                  rows={2}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs">Indicador Planejado</Label>
-                <Input
-                  value={form.plannedIndicator}
-                  onChange={(e) => handleChange('plannedIndicator', e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">Meta Quantitativa</Label>
-                  <Input
-                    type="number"
-                    value={form.quantitativeGoal}
-                    onChange={(e) => handleChange('quantitativeGoal', e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Resultado Alcançado</Label>
-                  <Input
-                    type="number"
-                    value={form.achievedResult}
-                    onChange={(e) => handleChange('achievedResult', e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs">% Contribuição</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={form.contributionPercent}
-                    onChange={(e) => handleChange('contributionPercent', e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs">Justificativa Técnica</Label>
-                <Textarea
-                  value={form.technicalJustification}
-                  onChange={(e) => handleChange('technicalJustification', e.target.value)}
-                  rows={2}
-                  className="mt-1"
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Audience */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Público</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Total de Público *</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.totalAudience}
-                  onChange={(e) => handleChange('totalAudience', e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Faixa de Público</Label>
-                <Select
-                  value={form.audienceRange}
-                  onValueChange={(v) => handleChange('audienceRange', v as AudienceRange)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ALL_AUDIENCE_RANGES.map((ar) => (
-                      <SelectItem key={ar} value={ar}>
-                        {audienceRangeLabel(ar)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <Label className="text-xs">Crianças</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.children}
-                  onChange={(e) => handleChange('children', e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Jovens</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.youth}
-                  onChange={(e) => handleChange('youth', e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Adultos</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.adults}
-                  onChange={(e) => handleChange('adults', e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Idosos</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.elderly}
-                  onChange={(e) => handleChange('elderly', e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">PCD</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={form.pcd}
-                  onChange={(e) => handleChange('pcd', e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            {/* Partnerships involved (required for large audiences) */}
-            {(form.audienceRange === AudienceRange.hundredOneToTwoHundred ||
-              form.audienceRange === AudienceRange.twoHundredOneToFiveHundred ||
-              form.audienceRange === AudienceRange.aboveFiveHundred) && (
-              <div>
-                <Label className="text-xs">Parcerias Envolvidas *</Label>
-                <Textarea
-                  value={form.partnershipsInvolved}
-                  onChange={(e) => handleChange('partnershipsInvolved', e.target.value)}
-                  rows={2}
-                  className="mt-1"
-                  placeholder="Descreva as parcerias envolvidas..."
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Accessibility */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Acessibilidade</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2">
-              {ALL_ACCESSIBILITY_OPTIONS.map((opt) => (
-                <div key={opt} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`acc-${opt}`}
-                    checked={form.accessibilityOptions.includes(opt)}
-                    onCheckedChange={() => {
-                      handleChange('accessibilityOptions', toggleArrayItem(form.accessibilityOptions, opt));
-                    }}
-                  />
-                  <Label htmlFor={`acc-${opt}`} className="text-xs cursor-pointer">
-                    {accessibilityOptionLabel(opt)}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Partnership */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Parceria</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={form.hadPartnership}
-                onCheckedChange={(v) => handleChange('hadPartnership', v)}
-              />
-              <Label className="text-xs">Houve parceria?</Label>
-            </div>
-            {form.hadPartnership && (
-              <>
-                <div>
-                  <Label className="text-xs">Nome do Parceiro</Label>
-                  <Input
-                    value={form.partnerName}
-                    onChange={(e) => handleChange('partnerName', e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Tipo de Parceiro</Label>
-                  <Input
-                    value={form.partnerType}
-                    onChange={(e) => handleChange('partnerType', e.target.value)}
-                    className="mt-1"
-                    placeholder="Ex: ONG, Empresa, Governo..."
-                  />
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Content */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Descrição e Resultados</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <Label className="text-xs">Objetivo</Label>
-              <Textarea
-                value={form.objective}
-                onChange={(e) => handleChange('objective', e.target.value)}
-                rows={2}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Descrição Executada *</Label>
-              <Textarea
-                value={form.executedDescription}
-                onChange={(e) => handleChange('executedDescription', e.target.value)}
-                rows={3}
-                className="mt-1"
-                placeholder="Descreva como a atividade foi executada..."
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Resultados Alcançados *</Label>
-              <Textarea
-                value={form.achievedResults}
-                onChange={(e) => handleChange('achievedResults', e.target.value)}
-                rows={3}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-xs">Avaliação Qualitativa *</Label>
-              <Textarea
-                value={form.qualitativeAssessment}
-                onChange={(e) => handleChange('qualitativeAssessment', e.target.value)}
-                rows={3}
-                className="mt-1"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Product & Quantity */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Produto Realizado</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <Label className="text-xs">Produto *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="actionType">Tipo de Ação</Label>
               <Select
-                value={form.productRealised}
-                onValueChange={(v) => handleChange('productRealised', v as ProductRealised)}
+                value={formData.actionType}
+                onValueChange={(val) => updateField('actionType', val)}
               >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
+                <SelectTrigger id="actionType" className="bg-background border-border">
+                  <SelectValue placeholder="Selecione o tipo de ação" />
                 </SelectTrigger>
-                <SelectContent>
-                  {ALL_PRODUCTS.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {productRealisedLabel(p)}
+                <SelectContent className="bg-background border-border">
+                  {ACTION_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {form.productRealised !== ProductRealised.naoSeAplica && (
-              <div>
-                <Label className="text-xs">Quantidade *</Label>
+            {/* Profissional - dropdown from registered users */}
+            <div className="space-y-2">
+              <Label htmlFor="professionalName">Profissional</Label>
+              <Select
+                value={formData.professionalName}
+                onValueChange={(val) => updateField('professionalName', val)}
+                disabled={loadingProfessionals}
+              >
+                <SelectTrigger id="professionalName" className="bg-background border-border">
+                  <SelectValue
+                    placeholder={
+                      loadingProfessionals ? 'Carregando...' : 'Selecione o profissional'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-border">
+                  {professionals && professionals.length > 0 ? (
+                    professionals.map((p) => (
+                      <SelectItem key={p.principal.toString()} value={p.name}>
+                        {p.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    !loadingProfessionals && (
+                      <SelectItem value="__none__" disabled>
+                        Nenhum profissional registado
+                      </SelectItem>
+                    )
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="museum">Local Realizado</Label>
+              <Select
+                value={formData.museum}
+                onValueChange={(val) => updateField('museum', val as MuseumLocation)}
+              >
+                <SelectTrigger id="museum" className="bg-background border-border">
+                  <SelectValue placeholder="Selecione o local" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-border">
+                  {MUSEUM_OPTIONS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {getMuseumLabel(m)}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="outros">Outros</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Date and Time */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="date">Data de Início</Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => updateField('date', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="startTime">Horário de Início</Label>
+              <Input
+                id="startTime"
+                type="time"
+                value={formData.startTime}
+                onChange={(e) => updateField('startTime', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endTime">Horário de Fim</Label>
+              <Input
+                id="endTime"
+                type="time"
+                value={formData.endTime}
+                onChange={(e) => updateField('endTime', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(val) => updateField('status', val as ActivityStatus)}
+              >
+                <SelectTrigger id="status" className="bg-background border-border">
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-border">
+                  {Object.values(ActivityStatus).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {activityStatusLabel(s)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="classification">Classificação</Label>
+              <Select
+                value={formData.classification}
+                onValueChange={(val) => updateField('classification', val as Classification)}
+              >
+                <SelectTrigger id="classification" className="bg-background border-border">
+                  <SelectValue placeholder="Selecione a classificação" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-border">
+                  {Object.values(Classification).map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {classificationLabel(c)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Cancellation */}
+      {formData.status === ActivityStatus.cancelled && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Motivo do Cancelamento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="cancellationReason">Motivo</Label>
+              <Textarea
+                id="cancellationReason"
+                value={formData.cancellationReason}
+                onChange={(e) => updateField('cancellationReason', e.target.value)}
+                placeholder="Descreva o motivo do cancelamento"
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Goal Info */}
+      {formData.classification === Classification.goalLinked && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Informações da Meta</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="goalNumber">Número da Meta</Label>
                 <Select
-                  value={form.quantity}
-                  onValueChange={(v) => handleChange('quantity', v as Quantity)}
+                  value={formData.goalNumber}
+                  onValueChange={(val) => updateField('goalNumber', val)}
                 >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione..." />
+                  <SelectTrigger id="goalNumber" className="bg-background border-border">
+                    <SelectValue placeholder="Selecione a meta" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {ALL_QUANTITIES.map((q) => (
+                  <SelectContent className="bg-background border-border">
+                    {goals?.map((g) => (
+                      <SelectItem key={String(g.id)} value={String(g.id)}>
+                        {String(g.id)} - {g.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="goalStatus">Status da Meta</Label>
+                <Select
+                  value={formData.goalStatus}
+                  onValueChange={(val) => updateField('goalStatus', val as GoalStatus)}
+                >
+                  <SelectTrigger id="goalStatus" className="bg-background border-border">
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border">
+                    {Object.values(GoalStatus).map((gs) => (
+                      <SelectItem key={gs} value={gs}>
+                        {goalStatusLabel(gs)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="goalDescription">Descrição da Meta</Label>
+              <Textarea
+                id="goalDescription"
+                value={formData.goalDescription}
+                onChange={(e) => updateField('goalDescription', e.target.value)}
+                placeholder="Descrição da meta"
+                rows={2}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="plannedIndicator">Indicador Planejado</Label>
+                <Input
+                  id="plannedIndicator"
+                  value={formData.plannedIndicator}
+                  onChange={(e) => updateField('plannedIndicator', e.target.value)}
+                  placeholder="Indicador"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quantitativeGoal">Meta Quantitativa</Label>
+                <Input
+                  id="quantitativeGoal"
+                  type="number"
+                  value={formData.quantitativeGoal}
+                  onChange={(e) => updateField('quantitativeGoal', e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="achievedResult">Resultado Alcançado</Label>
+                <Input
+                  id="achievedResult"
+                  type="number"
+                  value={formData.achievedResult}
+                  onChange={(e) => updateField('achievedResult', e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="technicalJustification">Justificativa Técnica</Label>
+              <Textarea
+                id="technicalJustification"
+                value={formData.technicalJustification}
+                onChange={(e) => updateField('technicalJustification', e.target.value)}
+                placeholder="Justificativa técnica"
+                rows={2}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Audience */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Público</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="totalAudience">Total de Público</Label>
+              <Input
+                id="totalAudience"
+                type="number"
+                min={0}
+                value={formData.totalAudience}
+                onChange={(e) => updateField('totalAudience', parseInt(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="children">Crianças</Label>
+              <Input
+                id="children"
+                type="number"
+                min={0}
+                value={formData.children}
+                onChange={(e) => updateField('children', parseInt(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="elderly">Idosos</Label>
+              <Input
+                id="elderly"
+                type="number"
+                min={0}
+                value={formData.elderly}
+                onChange={(e) => updateField('elderly', parseInt(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="youth">Jovens</Label>
+              <Input
+                id="youth"
+                type="number"
+                min={0}
+                value={formData.youth}
+                onChange={(e) => updateField('youth', parseInt(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="adults">Adultos</Label>
+              <Input
+                id="adults"
+                type="number"
+                min={0}
+                value={formData.adults}
+                onChange={(e) => updateField('adults', parseInt(e.target.value) || 0)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pcd">PCD</Label>
+              <Input
+                id="pcd"
+                type="number"
+                min={0}
+                value={formData.pcd}
+                onChange={(e) => updateField('pcd', parseInt(e.target.value) || 0)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="audienceRange">Faixa de Público</Label>
+            <Select
+              value={formData.audienceRange}
+              onValueChange={(val) => updateField('audienceRange', val as AudienceRange)}
+            >
+              <SelectTrigger id="audienceRange" className="bg-background border-border">
+                <SelectValue placeholder="Selecione a faixa" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border-border">
+                {Object.values(AudienceRange).map((ar) => (
+                  <SelectItem key={ar} value={ar}>
+                    {audienceRangeLabel(ar)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {(formData.audienceRange === AudienceRange.hundredOneToTwoHundred ||
+            formData.audienceRange === AudienceRange.twoHundredOneToFiveHundred ||
+            formData.audienceRange === AudienceRange.aboveFiveHundred) && (
+            <div className="space-y-2">
+              <Label htmlFor="partnershipsInvolved">Parcerias Envolvidas</Label>
+              <Textarea
+                id="partnershipsInvolved"
+                value={formData.partnershipsInvolved}
+                onChange={(e) => updateField('partnershipsInvolved', e.target.value)}
+                placeholder="Descreva as parcerias envolvidas"
+                rows={2}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Hours */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Horas Dedicadas</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="hoursNotApplicable"
+              checked={formData.hoursNotApplicable}
+              onCheckedChange={(checked) => {
+                updateField('hoursNotApplicable', !!checked);
+                if (checked) updateField('dedicatedHours', '');
+              }}
+            />
+            <Label htmlFor="hoursNotApplicable">Não se aplica</Label>
+          </div>
+          {!formData.hoursNotApplicable && (
+            <div className="space-y-2">
+              <Label htmlFor="dedicatedHours">Horas Dedicadas</Label>
+              <Input
+                id="dedicatedHours"
+                type="number"
+                min={0}
+                value={formData.dedicatedHours}
+                onChange={(e) => updateField('dedicatedHours', e.target.value)}
+                placeholder="Número de horas"
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Product Realised */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Produto Realizado</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="productRealised">Produto</Label>
+              <Select
+                value={formData.productRealised}
+                onValueChange={(val) => updateField('productRealised', val as ProductRealised)}
+              >
+                <SelectTrigger id="productRealised" className="bg-background border-border">
+                  <SelectValue placeholder="Selecione o produto" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border-border">
+                  {Object.values(ProductRealised).map((pr) => (
+                    <SelectItem key={pr} value={pr}>
+                      {productRealisedLabel(pr)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.productRealised !== ProductRealised.naoSeAplica && (
+              <div className="space-y-2">
+                <Label htmlFor="quantity">Quantidade</Label>
+                <Select
+                  value={formData.quantity}
+                  onValueChange={(val) => updateField('quantity', val as Quantity)}
+                >
+                  <SelectTrigger id="quantity" className="bg-background border-border">
+                    <SelectValue placeholder="Selecione a quantidade" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border">
+                    {Object.values(Quantity).map((q) => (
                       <SelectItem key={q} value={q}>
                         {quantityLabel(q)}
                       </SelectItem>
@@ -979,103 +827,173 @@ export default function ActivityFormPage() {
                 </Select>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Evidences */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Evidências</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              {ALL_EVIDENCE_TYPES.map((ev) => (
-                <div key={ev} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`ev-${ev}`}
-                    checked={form.evidences.includes(ev)}
-                    onCheckedChange={() => {
-                      handleChange('evidences', toggleArrayItem(form.evidences, ev));
-                    }}
-                  />
-                  <Label htmlFor={`ev-${ev}`} className="text-xs cursor-pointer">
-                    {evidenceTypeLabel(ev)}
-                  </Label>
-                </div>
-              ))}
-            </div>
-
-            <Separator />
-
-            {/* File Upload */}
-            <div>
-              <Label className="text-xs">Anexos</Label>
-              <div className="mt-1">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="flex items-center gap-2"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Enviando... {uploadProgress}%
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-3.5 w-3.5" />
-                      Adicionar Arquivo
-                    </>
-                  )}
-                </Button>
-              </div>
-              {uploadedFiles.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {uploadedFiles.map((_blob, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <FileText className="h-3 w-3" />
-                      <span>Arquivo {idx + 1}</span>
-                      <button
-                        type="button"
-                        onClick={() => setUploadedFiles((prev) => prev.filter((_, i) => i !== idx))}
-                        className="text-destructive ml-auto"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <Label className="text-xs">Prefixo dos Anexos</Label>
-              <Input
-                value={form.attachmentsPrefix}
-                onChange={(e) => handleChange('attachmentsPrefix', e.target.value)}
-                className="mt-1"
-                placeholder="Ex: oficina-arte-2025"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Error display */}
-        {(createMutation.isError || updateMutation.isError) && (
-          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
-            Erro ao salvar atividade. Verifique os campos obrigatórios e tente novamente.
           </div>
-        )}
+        </CardContent>
+      </Card>
+
+      {/* Description */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Descrição e Resultados</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="objective">Objetivo</Label>
+            <Textarea
+              id="objective"
+              value={formData.objective}
+              onChange={(e) => updateField('objective', e.target.value)}
+              placeholder="Objetivo da atividade"
+              rows={2}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="executedDescription">Descrição da Execução</Label>
+            <Textarea
+              id="executedDescription"
+              value={formData.executedDescription}
+              onChange={(e) => updateField('executedDescription', e.target.value)}
+              placeholder="Descreva como a atividade foi executada"
+              rows={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="achievedResults">Resultados Alcançados</Label>
+            <Textarea
+              id="achievedResults"
+              value={formData.achievedResults}
+              onChange={(e) => updateField('achievedResults', e.target.value)}
+              placeholder="Descreva os resultados alcançados"
+              rows={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="qualitativeAssessment">Avaliação Qualitativa</Label>
+            <Textarea
+              id="qualitativeAssessment"
+              value={formData.qualitativeAssessment}
+              onChange={(e) => updateField('qualitativeAssessment', e.target.value)}
+              placeholder="Avaliação qualitativa da atividade"
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Partnership */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Parceria</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="hadPartnership"
+              checked={formData.hadPartnership}
+              onCheckedChange={(checked) => updateField('hadPartnership', !!checked)}
+            />
+            <Label htmlFor="hadPartnership">Houve parceria</Label>
+          </div>
+          {formData.hadPartnership && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="partnerName">Nome do Parceiro</Label>
+                <Input
+                  id="partnerName"
+                  value={formData.partnerName}
+                  onChange={(e) => updateField('partnerName', e.target.value)}
+                  placeholder="Nome do parceiro"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="partnerType">Tipo de Parceiro</Label>
+                <Input
+                  id="partnerType"
+                  value={formData.partnerType}
+                  onChange={(e) => updateField('partnerType', e.target.value)}
+                  placeholder="Tipo de parceiro"
+                />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Accessibility */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Acessibilidade</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {Object.values(AccessibilityOption).map((opt) => (
+              <div key={opt} className="flex items-center gap-2">
+                <Checkbox
+                  id={`accessibility-${opt}`}
+                  checked={formData.accessibilityOptions.includes(opt)}
+                  onCheckedChange={() =>
+                    updateField(
+                      'accessibilityOptions',
+                      toggleArrayItem(formData.accessibilityOptions, opt)
+                    )
+                  }
+                />
+                <Label htmlFor={`accessibility-${opt}`} className="text-sm">
+                  {accessibilityOptionLabel(opt)}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Evidences */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Evidências</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {Object.values(EvidenceType).map((ev) => (
+              <div key={ev} className="flex items-center gap-2">
+                <Checkbox
+                  id={`evidence-${ev}`}
+                  checked={formData.evidences.includes(ev)}
+                  onCheckedChange={() =>
+                    updateField('evidences', toggleArrayItem(formData.evidences, ev))
+                  }
+                />
+                <Label htmlFor={`evidence-${ev}`} className="text-sm">
+                  {evidenceTypeLabel(ev)}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3 pb-8">
+        <Button
+          variant="outline"
+          onClick={() => navigate({ to: reportId ? `/reports/${reportId}` : '/reports' })}
+          disabled={isSaving}
+        >
+          Cancelar
+        </Button>
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              A guardar...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Guardar
+            </>
+          )}
+        </Button>
       </div>
     </div>
   );

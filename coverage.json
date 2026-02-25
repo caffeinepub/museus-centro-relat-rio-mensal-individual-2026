@@ -1,77 +1,55 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-25T15:39:49.928Z",
+  "generatedAt": "2026-02-25T19:35:17.308Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
-    "implemented": 3,
+    "total": 2,
+    "implemented": 2,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Add an 'Approve Report' (Aprovar Relatório) button in the Coordinator view (ApprovalsPage and/or ApprovalDetailView) that allows coordinators to approve a submitted report. The button should trigger the existing approval mutation and be visible only to users with the coordination or administration role.",
+        "summary": "Add a month/year selector component (defaulting to the current month and year) that allows the user to pick any month before triggering the export. This selector should be accessible from the report list page or a dedicated export button area visible to the logged-in user.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/ApprovalDetailView.tsx",
-          "frontend/src/pages/ApprovalsPage.tsx"
+          "frontend/src/components/MonthYearSelector.tsx",
+          "frontend/src/pages/ReportsListPage.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/components/ApprovalDetailView.tsx",
-          "frontend/src/pages/ApprovalsPage.tsx"
+          "frontend/src/components/MonthYearSelector.tsx",
+          "frontend/src/pages/ReportsListPage.tsx"
         ]
       },
       {
         "id": "REQ-2",
-        "summary": "Restore all activity-related fields and functionality in the report pages. This includes: the 'Add Activity' (Nova Atividade / Adicionar Atividade) button on each report's detail/list view, the ActivitiesList component displaying activity cards with status badges, hours, and audience, and the ability to create/edit activities linked to a report via ActivityFormPage. Ensure activities are correctly fetched and displayed for each report.",
+        "summary": "Add an export button on the reports list page (ReportsListPage) that exports the current user's monthly report and all its associated activities. The export must support two formats: PDF (using the existing pdfGenerator utility) and CSV/Excel (using the existing excelGenerator utility). The exported data must include all activity fields for the selected month/year.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/ActivitiesList.tsx",
-          "frontend/src/pages/ActivityFormPage.tsx",
           "frontend/src/pages/ReportsListPage.tsx",
-          "frontend/src/pages/ReportFormPage.tsx"
+          "frontend/src/utils/pdfGenerator.ts",
+          "frontend/src/utils/excelGenerator.ts"
         ],
         "matchedFiles": [
-          "frontend/src/components/ActivitiesList.tsx",
-          "frontend/src/pages/ActivityFormPage.tsx",
-          "frontend/src/pages/ReportsListPage.tsx",
-          "frontend/src/pages/ReportFormPage.tsx"
-        ]
-      },
-      {
-        "id": "REQ-3",
-        "summary": "Ensure the application loads and renders correctly without blank screen or crash on startup. Investigate and fix any runtime errors or missing imports that may have caused Version 21 to fail to open.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/App.tsx",
-          "frontend/src/components/ActivitiesList.tsx",
-          "frontend/src/pages/ActivityFormPage.tsx",
-          "frontend/src/components/ApprovalDetailView.tsx",
-          "frontend/src/pages/ApprovalsPage.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/App.tsx",
-          "frontend/src/components/ActivitiesList.tsx",
-          "frontend/src/pages/ActivityFormPage.tsx",
-          "frontend/src/components/ApprovalDetailView.tsx",
-          "frontend/src/pages/ApprovalsPage.tsx"
+          "frontend/src/pages/ReportsListPage.tsx"
         ]
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/App.tsx",
-    "frontend/src/components/ActivitiesList.tsx",
-    "frontend/src/components/ApprovalDetailView.tsx",
-    "frontend/src/pages/ActivityFormPage.tsx",
-    "frontend/src/pages/ApprovalsPage.tsx",
-    "frontend/src/pages/ReportFormPage.tsx",
+    "frontend/src/backend.d.ts",
+    "frontend/src/backend.ts",
+    "frontend/src/components/MonthYearSelector.tsx",
+    "frontend/src/declarations/backend.did.d.ts",
+    "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useQueries.ts",
     "frontend/src/pages/ReportsListPage.tsx",
     "project_state.json",
     "scratch/component-selection.json",

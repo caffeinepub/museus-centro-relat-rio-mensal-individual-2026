@@ -1,76 +1,61 @@
 {
   "kind": "build_request",
-  "title": "Add Approve Report button in Coordinator View and restore Activity fields/functionality",
-  "projectName": "Museus Centro",
-  "priority": "high",
+  "title": "Re-add Monthly Report Export Button (PDF + CSV) with Month/Year Selector",
+  "projectName": "Museus Centro Reports",
+  "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Add an 'Approve Report' (Aprovar Relatório) button in the Coordinator view (ApprovalsPage and/or ApprovalDetailView) that allows coordinators to approve a submitted report. The button should trigger the existing approval mutation and be visible only to users with the coordination or administration role.",
+      "text": "Add a month/year selector component (defaulting to the current month and year) that allows the user to pick any month before triggering the export. This selector should be accessible from the report list page or a dedicated export button area visible to the logged-in user.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-recent-3"
         ],
         "quotes": [
-          "Adicione botao Aprovar Relatório na Visão Coordenador"
+          "pode escolher o mes e o mes atual sempre default"
         ]
       },
       "acceptanceCriteria": [
-        "An 'Approve Report' button is visible in the Coordinator view (ApprovalsPage/ApprovalDetailView) for submitted reports",
-        "The button is only visible to users with coordinator or admin roles",
-        "Clicking the button triggers the approval action and updates the report status accordingly",
-        "The UI reflects the updated approval status after the action"
+        "A month selector dropdown and year selector (or combined month/year picker) is displayed near the export button.",
+        "The selector defaults to the current month and year on initial render.",
+        "The user can change the month and year before exporting.",
+        "The selected month/year is used to filter which report and activities are exported."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Restore all activity-related fields and functionality in the report pages. This includes: the 'Add Activity' (Nova Atividade / Adicionar Atividade) button on each report's detail/list view, the ActivitiesList component displaying activity cards with status badges, hours, and audience, and the ability to create/edit activities linked to a report via ActivityFormPage. Ensure activities are correctly fetched and displayed for each report.",
-      "target": "frontend",
+      "text": "Add an export button on the reports list page (ReportsListPage) that exports the current user's monthly report and all its associated activities. The export must support two formats: PDF (using the existing pdfGenerator utility) and CSV/Excel (using the existing excelGenerator utility). The exported data must include all activity fields for the selected month/year.",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-6"
+          "msg-recent-1",
+          "msg-recent-3"
         ],
         "quotes": [
-          "re insira os campos e funcioanlidade relacionada as atividades adicionadas"
+          "reinsira botao de exportar relatrório mensal por usuário incluindo atividades",
+          "1 ambos 2 as atividades 3 pode escolher o mes e o mes atual sempre default"
         ]
       },
       "acceptanceCriteria": [
-        "The 'Add Activity' button appears on each report detail/list view for editable reports",
-        "The ActivitiesList component renders activity cards with all fields (status badge, hours, audience, classification, etc.)",
-        "Clicking 'Add Activity' navigates to ActivityFormPage pre-linked to the correct report",
-        "Activities saved for a report are fetched and displayed correctly under that report",
-        "All activity form fields (classification, status, audience profiles, products, evidence, accessibility, quantitative goals) are present and functional"
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "Ensure the application loads and renders correctly without blank screen or crash on startup. Investigate and fix any runtime errors or missing imports that may have caused Version 21 to fail to open.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-6"
-        ],
-        "quotes": [
-          "a versao 21 nao abriu"
-        ]
-      },
-      "acceptanceCriteria": [
-        "The application loads successfully without a blank screen or unhandled runtime error",
-        "All pages navigate correctly without crashing",
-        "No console errors related to missing components or broken imports on initial load"
+        "An 'Export Report' button (or button group) is visible on the reports list page for the logged-in user.",
+        "Clicking the PDF export option generates and downloads a PDF containing the user's report metadata and all associated activities for the selected month/year.",
+        "Clicking the CSV/Excel export option generates and downloads a CSV file containing the user's report metadata and all associated activities for the selected month/year.",
+        "If no report exists for the selected month/year, a user-friendly message is shown (e.g., 'No report found for this period').",
+        "The export is scoped to the currently authenticated user's own data only.",
+        "Both export options use the selected month/year from the month/year selector (REQ-1)."
       ]
     }
   ],
   "constraints": [
-    "Do not change the backend data schema or existing Motoko actor logic unless required to support the approval button action",
-    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui",
-    "Approval button must respect existing role-based authorization (coordinator/admin only)"
+    "Do not modify files listed in frontend.immutablePaths.",
+    "Reuse existing pdfGenerator and excelGenerator utilities for the export logic.",
+    "Export is scoped per user — only the authenticated user's own report and activities are included."
   ],
   "nonGoals": [
-    "Redesigning the overall UI layout or color theme",
-    "Adding new backend endpoints beyond what is needed for report approval",
-    "Changing the PDF or Excel export functionality"
+    "Exporting reports for other users (admin consolidated export is a separate feature).",
+    "Adding new backend endpoints solely for export — use existing query hooks.",
+    "Changing the existing PDF or CSV format/structure."
   ],
   "imageRequirements": {
     "required": [],

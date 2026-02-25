@@ -19,7 +19,7 @@ import PublicoGeralCard from '../components/dashboard/PublicoGeralCard';
 
 export default function DashboardPage() {
   const { data: userProfile } = useGetCallerUserProfile();
-  const isCoordinadorGeral = useIsCoordinadorGeral(userProfile);
+  const isCoordinadorGeral = useIsCoordinadorGeral();
 
   const [museumFilter, setMuseumFilter] = useState<MuseumLocation | 'all'>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
