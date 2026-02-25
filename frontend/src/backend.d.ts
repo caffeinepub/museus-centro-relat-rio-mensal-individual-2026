@@ -91,12 +91,32 @@ export interface UserApprovalInfo {
     status: ApprovalStatus;
     principal: Principal;
 }
+export interface ReportCreate {
+    difficulties: string;
+    status: Status;
+    expectedImpact: string;
+    suggestions: string;
+    authorId: Principal;
+    otherMuseum?: string;
+    identifiedOpportunity: string;
+    professionalName: string;
+    role: string;
+    year: Year;
+    workedAtOtherMuseum: boolean;
+    positivePoints: string;
+    mainMuseum: MuseumLocation;
+    executiveSummary: string;
+    referenceMonth: Month;
+    opportunityCategory: string;
+}
 export interface DateRange {
     startYear: Year;
     endMonth: Month;
     startMonth: Month;
     endYear: Year;
 }
+export type ActivityId = string;
+export type Attachment = Uint8Array;
 export interface Activity {
     id: ActivityId;
     pcd: bigint;
@@ -140,8 +160,6 @@ export interface Activity {
     accessibilityOptions: Array<AccessibilityOption>;
     classification: Classification;
 }
-export type ActivityId = string;
-export type Attachment = Uint8Array;
 export interface StatusBreakdown {
     submitted: bigint;
     underReview: bigint;
@@ -337,7 +355,7 @@ export interface backendInterface {
     approveUser(user: Principal): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createActivity(activity: ActivityCreate): Promise<ActivityId>;
-    createReport(report: Report): Promise<ReportId>;
+    createReport(report: ReportCreate): Promise<ReportId>;
     /**
      * / Delete an activity.
      * / Coordinators and admins can delete any activity.
@@ -393,6 +411,10 @@ export interface backendInterface {
      * / downgraded to #coordinator.
      */
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    /**
+     * / Search activities by name.
+     * / Requires at least #user permission to prevent anonymous data harvesting.
+     */
     searchActivitiesByName(searchTerm: string): Promise<Array<ActivitySearchResult>>;
     /**
      * / Set approval status for a user.

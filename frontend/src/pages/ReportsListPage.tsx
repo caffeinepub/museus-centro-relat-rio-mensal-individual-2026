@@ -1,25 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import {
   useReportsForUser,
-  useAllReports,
   useDeleteReport,
   useGetCallerUserProfile,
-  useAllActivities,
-  useIsCoordinadorGeral,
 } from '../hooks/useQueries';
-import { AppUserRole, type Report } from '../backend';
-import { Button } from '@/components/ui/button';
+import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import { Report, Status, AppUserRole } from '../backend';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,288 +24,249 @@ import {
 import {
   Plus,
   FileText,
+  Calendar,
+  Building2,
   Trash2,
-  Edit,
-  Eye,
+  Edit2,
+  Activity,
+  ChevronDown,
+  ChevronUp,
   Loader2,
-  Search,
-  Download,
-  Filter,
 } from 'lucide-react';
-import { statusLabel, getMuseumLabel, MONTHS, getMonthLabel } from '../utils/labels';
-import { generateConsolidatedExcel } from '../utils/excelGenerator';
-import type { Principal } from '@dfinity/principal';
+import { statusLabel, getMuseumLabel, getMonthLabel } from '../utils/labels';
+import ActivitiesList from '../components/ActivitiesList';
 
-const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  draft: 'secondary',
-  submitted: 'default',
-  underReview: 'outline',
-  approved: 'default',
-  analysis: 'outline',
-  requiresAdjustment: 'destructive',
-};
+function getStatusBadgeVariant(status: Status): 'default' | 'secondary' | 'outline' | 'destructive' {
+  switch (status) {
+    case Status.approved: return 'default';
+    case Status.submitted: return 'secondary';
+    case Status.underReview: return 'outline';
+    case Status.requiresAdjustment: return 'destructive';
+    default: return 'outline';
+  }
+}
+
+function ReportCard({
+  report,
+  userRole,
+  onEdit,
+  onDelete,
+  onAddActivity,
+}: {
+  report: Report;
+  userRole?: AppUserRole;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  onAddActivity: (id: string) => void;
+}) {
+  const { identity } = useInternetIdentity();
+  const [showActivities, setShowActivities] = useState(false);
+
+  const isCoordinatorOrAdmin =
+    userRole === AppUserRole.coordination ||
+    userRole === AppUserRole.coordinator ||
+    userRole === AppUserRole.administration;
+
+  const isOwner = identity?.getPrincipal().toString() === report.authorId.toString();
+
+  const canEdit =
+    isCoordinatorOrAdmin ||
+    (isOwner && (report.status === Status.draft || report.status === Status.requiresAdjustment));
+
+  const canAddActivity =
+    isCoordinatorOrAdmin ||
+    (isOwner && (report.status === Status.draft || report.status === Status.requiresAdjustment));
+
+  return (
+    <Card className="hover:border-primary/30 transition-colors">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="font-medium text-sm text-foreground">{report.professionalName}</span>
+              <Badge variant={getStatusBadgeVariant(report.status)} className="text-xs">
+                {statusLabel(report.status)}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {getMonthLabel(report.referenceMonth)} / {report.year.toString()}
+              </span>
+              <span className="flex items-center gap-1">
+                <Building2 className="h-3 w-3" />
+                {getMuseumLabel(report.mainMuseum)}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground/60 mt-1">{report.protocolNumber}</p>
+
+            {/* Coordinator comments */}
+            {report.coordinatorComments && (
+              <div className="mt-2 p-2 bg-warning/10 rounded text-xs border border-warning/20">
+                <span className="font-medium">Comentário: </span>
+                {report.coordinatorComments}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {canAddActivity && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                title="Adicionar Atividade"
+                onClick={() => onAddActivity(report.id)}
+              >
+                <Activity className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {canEdit && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => onEdit(report.id)}
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-destructive hover:text-destructive"
+                  onClick={() => onDelete(report.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setShowActivities((v) => !v)}
+              title="Ver atividades"
+            >
+              {showActivities ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
+        </div>
+
+        {/* Activities section */}
+        {showActivities && (
+          <div className="mt-3 pt-3 border-t border-border">
+            <ActivitiesList report={report} userRole={userRole} />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function ReportsListPage() {
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
   const { data: userProfile } = useGetCallerUserProfile();
-  const isCoordinadorGeral = useIsCoordinadorGeral(userProfile);
-
-  const isCoordinator =
-    userProfile?.appRole === AppUserRole.coordination ||
-    userProfile?.appRole === AppUserRole.coordinator ||
-    userProfile?.appRole === AppUserRole.administration;
-
-  const { data: myReports, isLoading: myLoading } = useReportsForUser(
-    !isCoordinator ? (identity?.getPrincipal() as unknown as Principal) : undefined
+  const { data: reports, isLoading } = useReportsForUser(
+    identity?.getPrincipal()
   );
-  const { data: allReports, isLoading: allLoading } = useAllReports();
-  const { data: allActivities } = useAllActivities();
-  const deleteReport = useDeleteReport();
+  const deleteMutation = useDeleteReport();
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [monthFilter, setMonthFilter] = useState<string>('all');
-  const [reportToDelete, setReportToDelete] = useState<Report | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  const reports = isCoordinator ? (allReports ?? []) : (myReports ?? []);
-  const isLoading = isCoordinator ? allLoading : myLoading;
+  const userRole = userProfile?.appRole;
 
-  const filteredReports = reports.filter((r) => {
-    const matchesSearch =
-      !searchTerm ||
-      r.professionalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.protocolNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.executiveSummary.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-    const matchesMonth = monthFilter === 'all' || r.referenceMonth === monthFilter;
-    return matchesSearch && matchesStatus && matchesMonth;
-  });
+  const handleEdit = (reportId: string) => {
+    navigate({ to: '/reports/$reportId', params: { reportId } });
+  };
 
-  const handleDelete = async () => {
-    if (!reportToDelete) return;
-    try {
-      await deleteReport.mutateAsync(reportToDelete.id);
-      setReportToDelete(null);
-    } catch {
-      // error handled by mutation
+  const handleDelete = (reportId: string) => {
+    setDeleteConfirmId(reportId);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteConfirmId) {
+      deleteMutation.mutate(deleteConfirmId, {
+        onSuccess: () => setDeleteConfirmId(null),
+      });
     }
   };
 
-  const handleExportXLSX = async () => {
-    if (!allReports || !allActivities) return;
-    setIsExporting(true);
-    try {
-      generateConsolidatedExcel(allReports, allActivities);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const canEdit = (report: Report): boolean => {
-    if (isCoordinator) return true;
-    return (
-      report.authorId.toString() === identity?.getPrincipal().toString() &&
-      (report.status === 'draft' || report.status === 'requiresAdjustment')
-    );
-  };
-
-  const canDelete = (report: Report): boolean => {
-    if (isCoordinator) return true;
-    return (
-      report.authorId.toString() === identity?.getPrincipal().toString() &&
-      (report.status === 'draft' || report.status === 'requiresAdjustment')
-    );
+  const handleAddActivity = (reportId: string) => {
+    navigate({ to: '/activities/new', search: { reportId } });
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between p-6 border-b border-border">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Relatórios</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isCoordinator
-              ? `${filteredReports.length} relatório(s) no sistema`
-              : `${filteredReports.length} relatório(s) seus`}
+          <h1 className="text-2xl font-bold text-foreground">Meus Relatórios</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Gerencie seus relatórios mensais de atividades
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {isCoordinator && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportXLSX}
-              disabled={isExporting || !allReports?.length}
-            >
-              {isExporting ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4 mr-2" />
-              )}
-              Exportar XLSX
-            </Button>
-          )}
-          <Button onClick={() => navigate({ to: '/reports/new' })}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Relatório
-          </Button>
-        </div>
+        <Button onClick={() => navigate({ to: '/reports/new' })} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Novo Relatório
+        </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Pesquisar por profissional, protocolo..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-44">
-            <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            <SelectItem value="draft">Rascunho</SelectItem>
-            <SelectItem value="submitted">Submetido</SelectItem>
-            <SelectItem value="underReview">Em Revisão</SelectItem>
-            <SelectItem value="approved">Aprovado</SelectItem>
-            <SelectItem value="analysis">Em Análise</SelectItem>
-            <SelectItem value="requiresAdjustment">Requer Ajuste</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={monthFilter} onValueChange={setMonthFilter}>
-          <SelectTrigger className="w-full sm:w-44">
-            <SelectValue placeholder="Mês" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os meses</SelectItem>
-            {MONTHS.map((m) => (
-              <SelectItem key={m} value={m}>
-                {getMonthLabel(m)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Reports List */}
-      {isLoading ? (
-        <div className="flex items-center justify-center h-48">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      ) : filteredReports.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">Nenhum relatório encontrado</p>
-          <p className="text-sm mt-1">
-            {searchTerm || statusFilter !== 'all' || monthFilter !== 'all'
-              ? 'Tente ajustar os filtros'
-              : 'Crie seu primeiro relatório'}
-          </p>
-          {!searchTerm && statusFilter === 'all' && monthFilter === 'all' && (
+      {/* List */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-lg" />
+          ))
+        ) : !reports || reports.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground/40 mb-3" />
+            <p className="text-muted-foreground font-medium">Nenhum relatório encontrado</p>
+            <p className="text-muted-foreground/60 text-sm mt-1">
+              Crie seu primeiro relatório para começar
+            </p>
             <Button
-              className="mt-4"
               onClick={() => navigate({ to: '/reports/new' })}
+              className="mt-4 flex items-center gap-2"
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="h-4 w-4" />
               Criar Relatório
             </Button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredReports.map((report) => (
-            <div
+          </div>
+        ) : (
+          reports.map((report) => (
+            <ReportCard
               key={report.id}
-              className="group flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:shadow-sm hover:border-primary/30 transition-all"
-            >
-              <div className="flex items-start gap-4 min-w-0">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <FileText className="w-5 h-5 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-foreground text-sm">
-                      {report.professionalName}
-                    </p>
-                    <Badge
-                      variant={STATUS_VARIANTS[report.status] ?? 'secondary'}
-                      className="text-xs"
-                    >
-                      {statusLabel(report.status)}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {getMonthLabel(report.referenceMonth)} {report.year.toString()} ·{' '}
-                    {getMuseumLabel(report.mainMuseum)} · {report.protocolNumber}
-                  </p>
-                  {report.executiveSummary && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                      {report.executiveSummary}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0 ml-3">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="w-8 h-8"
-                  onClick={() => navigate({ to: `/reports/${report.id}` })}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                </Button>
-                {canEdit(report) && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="w-8 h-8"
-                    onClick={() => navigate({ to: `/reports/${report.id}/edit` })}
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                  </Button>
-                )}
-                {canDelete(report) && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="w-8 h-8 text-destructive hover:text-destructive"
-                    onClick={() => setReportToDelete(report)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+              report={report}
+              userRole={userRole}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onAddActivity={handleAddActivity}
+            />
+          ))
+        )}
+      </div>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!reportToDelete} onOpenChange={(open) => !open && setReportToDelete(null)}>
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Relatório</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o relatório de{' '}
-              <strong>{reportToDelete?.professionalName}</strong>? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir este relatório? Esta ação não pode ser desfeita e todas as
+              atividades associadas também serão removidas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
             >
-              {deleteReport.isPending ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              {deleteMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
               ) : null}
               Excluir
             </AlertDialogAction>

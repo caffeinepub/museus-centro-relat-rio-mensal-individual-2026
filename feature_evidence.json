@@ -2,13 +2,35 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-add-a-p-blico-geral-kpi-card-to-the-dashboard-page-that-displays-the-total-general-audience-value-include-a-period-selector-control-allowing-the-user-to-switch-between-three-modes-m-s-atual-current-month-acumulado-cumulative-and-per-odo-customizado-custom-date-range-when-per-odo-customizado-is-selected-show-start-and-end-month-year-pickers-the-kpi-card-should-update-reactively-when-the-period-selection-changes",
-      "featureTitle": "Add a 'Público Geral' KPI card to the Dashboard page that displays the total general audience value. Include a period selector control allowing the user to switch between three modes: 'Mês Atual' (current month), 'Acumulado' (cumulative), and 'Período Customizado' (custom date range). When 'Período Customizado' is selected, show start and end month/year pickers. The KPI card should update reactively when the period selection changes.",
+      "featureId": "feature-add-an-approve-report-aprovar-relat-rio-button-in-the-coordinator-view-approvalspage-and-or-approvaldetailview-that-allows-coordinators-to-approve-a-submitted-report-the-button-should-trigger-the-existing-approval-mutation-and-be-visible-only-to-users-with-the-coordination-or-administration-role",
+      "featureTitle": "Add an 'Approve Report' (Aprovar Relatório) button in the Coordinator view (ApprovalsPage and/or ApprovalDetailView) that allows coordinators to approve a submitted report. The button should trigger the existing approval mutation and be visible only to users with the coordination or administration role.",
       "files": [
-        "frontend/src/components/dashboard/PublicoGeralCard.tsx",
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/DashboardPage.tsx",
-        "frontend/src/utils/labels.ts"
+        "frontend/src/components/ApprovalDetailView.tsx",
+        "frontend/src/pages/ApprovalsPage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-restore-all-activity-related-fields-and-functionality-in-the-report-pages-this-includes-the-add-activity-nova-atividade-adicionar-atividade-button-on-each-report-s-detail-list-view-the-activitieslist-component-displaying-activity-cards-with-status-badges-hours-and-audience-and-the-ability-to-create-edit-activities-linked-to-a-report-via-activityformpage-ensure-activities-are-correctly-fetched-and-displayed-for-each-report",
+      "featureTitle": "Restore all activity-related fields and functionality in the report pages. This includes: the 'Add Activity' (Nova Atividade / Adicionar Atividade) button on each report's detail/list view, the ActivitiesList component displaying activity cards with status badges, hours, and audience, and the ability to create/edit activities linked to a report via ActivityFormPage. Ensure activities are correctly fetched and displayed for each report.",
+      "files": [
+        "frontend/src/components/ActivitiesList.tsx",
+        "frontend/src/pages/ActivityFormPage.tsx",
+        "frontend/src/pages/ReportFormPage.tsx",
+        "frontend/src/pages/ReportsListPage.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -22,6 +44,31 @@
       ],
       "testIds": [
         "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-ensure-the-application-loads-and-renders-correctly-without-blank-screen-or-crash-on-startup-investigate-and-fix-any-runtime-errors-or-missing-imports-that-may-have-caused-version-21-to-fail-to-open",
+      "featureTitle": "Ensure the application loads and renders correctly without blank screen or crash on startup. Investigate and fix any runtime errors or missing imports that may have caused Version 21 to fail to open.",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/components/ActivitiesList.tsx",
+        "frontend/src/components/ApprovalDetailView.tsx",
+        "frontend/src/pages/ActivityFormPage.tsx",
+        "frontend/src/pages/ApprovalsPage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0",
+        "user-approval@3.0.0"
+      ],
+      "testIds": [
+        "REQ-3"
       ],
       "confidence": "high"
     }

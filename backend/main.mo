@@ -11,7 +11,6 @@ import Set "mo:core/Set";
 import Text "mo:core/Text";
 import Time "mo:core/Time";
 
-
 import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import AccessControl "authorization/access-control";
@@ -187,6 +186,25 @@ actor {
     coordinatorSignature : ?Storage.ExternalBlob;
   };
 
+  public type ReportCreate = {
+    referenceMonth : Month;
+    year : Year;
+    professionalName : Text;
+    role : Text;
+    mainMuseum : MuseumLocation;
+    workedAtOtherMuseum : Bool;
+    otherMuseum : ?Text;
+    executiveSummary : Text;
+    positivePoints : Text;
+    difficulties : Text;
+    suggestions : Text;
+    identifiedOpportunity : Text;
+    opportunityCategory : Text;
+    expectedImpact : Text;
+    status : Status;
+    authorId : Principal;
+  };
+
   public type Activity = {
     id : ActivityId;
     reportId : ReportId;
@@ -346,6 +364,27 @@ actor {
     #specificMonth : { month : Month; year : Year };
     #cumulativeTotal;
     #customRange : DateRange;
+  };
+
+  // ── Shared activity validation fields type ─────────────────────────────────
+
+  // A structural type capturing the fields needed for activity validation,
+  // compatible with both ActivityCreate and Activity.
+  type ActivityValidationFields = {
+    dedicatedHours : ?Nat;
+    hoursNotApplicable : Bool;
+    productRealised : ProductRealised;
+    quantity : ?Quantity;
+    audienceRange : AudienceRange;
+    partnershipsInvolved : ?Text;
+    status : ActivityStatus;
+    cancellationReason : ?Text;
+    totalAudience : Nat;
+    children : Nat;
+    youth : Nat;
+    adults : Nat;
+    elderly : Nat;
+    pcd : Nat;
   };
 
   // ── Constants ──────────────────────────────────────────────────────────────
@@ -683,14 +722,14 @@ actor {
 
   // ── Report endpoints ───────────────────────────────────────────────────────
 
-  public shared ({ caller }) func createReport(report : Report) : async ReportId {
+  public shared ({ caller }) func createReport(report : ReportCreate) : async ReportId {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only registered users can create reports");
     };
     if (report.authorId != caller) {
       Runtime.trap("Unauthorized: Can only create own reports");
     };
-    validateReport(report);
+    validateReportCreate(report);
 
     let reportId = generateId();
 
@@ -730,7 +769,7 @@ actor {
     if (not canEditReport(caller, existing)) {
       Runtime.trap("Unauthorized: Professionals can only edit own reports in draft or returned status");
     };
-    validateReport(updated);
+    validateReportFull(updated);
     let updatedReport : Report = {
       updated with
       id = reportId;
@@ -916,7 +955,7 @@ actor {
       Runtime.trap("Unauthorized: Can only create activities for own reports");
     };
 
-    validateActivity(activity);
+    validateActivityFields(activity);
 
     let activityId = generateId();
     let newActivity : Activity = {
@@ -949,7 +988,7 @@ actor {
     if (not canEditReport(caller, report)) {
       Runtime.trap("Unauthorized: Professionals can only edit activities in own reports in draft or returned status");
     };
-    validateActivity(updated);
+    validateActivityFields(updated);
     let updatedActivity : Activity = { updated with id = activityId };
     activities.add(activityId, updatedActivity);
   };
@@ -1018,11 +1057,25 @@ actor {
     activities.values().toArray();
   };
 
+  /// Search activities by name.
+  /// Requires at least #user permission to prevent anonymous data harvesting.
   public query ({ caller }) func searchActivitiesByName(searchTerm : Text) : async [ActivitySearchResult] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Unauthorized: Only registered users can search activities");
+    };
     let lowercaseSearchTerm = searchTerm.toLower();
+    // Non-coordinators can only search within their own activities
     let searchResults = activities.toArray().filter(
       func((id, activity)) {
-        activity.activityName.toLower().contains(#text lowercaseSearchTerm)
+        let nameMatches = activity.activityName.toLower().contains(#text lowercaseSearchTerm);
+        if (not nameMatches) { return false };
+        if (isCoordinator(caller)) { return true };
+        // Professionals can only see activities belonging to their own reports
+        let reportAuthor = switch (reports.get(activity.reportId)) {
+          case (?r) { r.authorId };
+          case (null) { return false };
+        };
+        reportAuthor == caller;
       }
     );
     searchResults.map(func((id, activity)) { { id; activityName = activity.activityName } });
@@ -1220,10 +1273,15 @@ actor {
     ts.toText();
   };
 
-  func validateReport(_report : Report) { () };
+  /// Validate a ReportCreate payload (used on creation).
+  func validateReportCreate(_report : ReportCreate) { () };
 
-  func validateActivity(activity : ActivityCreate) {
-    validateAudience(activity);
+  /// Validate a full Report record (used on update).
+  func validateReportFull(_report : Report) { () };
+
+  /// Core activity validation logic operating on the shared structural fields.
+  func validateActivityFields(activity : ActivityValidationFields) {
+    validateAudienceFields(activity);
 
     if ((activity.dedicatedHours == null) == not activity.hoursNotApplicable) {
       Runtime.trap("Either dedicatedHours or hoursNotApplicable must be set, but not both");
@@ -1247,7 +1305,7 @@ actor {
     };
   };
 
-  func validateAudience(activity : ActivityCreate) {
+  func validateAudienceFields(activity : ActivityValidationFields) {
     let totalSubGroups =
       activity.children +
       activity.youth +

@@ -23,13 +23,11 @@ export default function DashboardPage() {
 
   const [museumFilter, setMuseumFilter] = useState<MuseumLocation | 'all'>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
-  const [professionalFilter, setProfessionalFilter] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
 
   const filter: DashboardFilter = {
     museum: museumFilter !== 'all' ? museumFilter : undefined,
     month: monthFilter !== 'all' ? monthFilter : undefined,
-    professionalName: professionalFilter || undefined,
   };
 
   const { data: dashboard, isLoading } = useCoordinationDashboard(filter);
@@ -54,6 +52,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Visão geral das atividades e relatórios
+            {isCoordinadorGeral && ' — Coordenador Geral'}
           </p>
         </div>
         <Button

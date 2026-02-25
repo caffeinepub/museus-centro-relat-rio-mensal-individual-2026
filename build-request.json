@@ -1,61 +1,76 @@
 {
   "kind": "build_request",
-  "title": "Add 'Público Geral' metric with period filters to Dashboard",
+  "title": "Add Approve Report button in Coordinator View and restore Activity fields/functionality",
   "projectName": "Museus Centro",
-  "priority": "normal",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Add a backend query function that returns the total general audience ('público geral') aggregated across all approved/submitted reports, supporting three filter modes: (1) a specific month+year, (2) cumulative total (all time), and (3) a custom date range defined by start month+year and end month+year.",
-      "target": "backend",
+      "text": "Add an 'Approve Report' (Aprovar Relatório) button in the Coordinator view (ApprovalsPage and/or ApprovalDetailView) that allows coordinators to approve a submitted report. The button should trigger the existing approval mutation and be visible only to users with the coordination or administration role.",
+      "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-8"
+          "msg-6"
         ],
         "quotes": [
-          "no dashboard insira o publico geral no periodo do mes o acumulado ou datra customizada"
+          "Adicione botao Aprovar Relatório na Visão Coordenador"
         ]
       },
       "acceptanceCriteria": [
-        "A new query function exists that accepts a period filter variant: #month(month, year), #cumulative, or #customRange(startMonth, startYear, endMonth, endYear).",
-        "The function returns the sum of the 'publicoGeral' (or equivalent audience total field) from all qualifying activity/report records matching the filter.",
-        "The cumulative mode returns the sum across all records regardless of date.",
-        "The monthly mode returns the sum for the specified month and year only.",
-        "The custom range mode returns the sum for all months inclusively between start and end."
+        "An 'Approve Report' button is visible in the Coordinator view (ApprovalsPage/ApprovalDetailView) for submitted reports",
+        "The button is only visible to users with coordinator or admin roles",
+        "Clicking the button triggers the approval action and updates the report status accordingly",
+        "The UI reflects the updated approval status after the action"
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Add a 'Público Geral' KPI card to the Dashboard page that displays the total general audience value. Include a period selector control allowing the user to switch between three modes: 'Mês Atual' (current month), 'Acumulado' (cumulative), and 'Período Customizado' (custom date range). When 'Período Customizado' is selected, show start and end month/year pickers. The KPI card should update reactively when the period selection changes.",
+      "text": "Restore all activity-related fields and functionality in the report pages. This includes: the 'Add Activity' (Nova Atividade / Adicionar Atividade) button on each report's detail/list view, the ActivitiesList component displaying activity cards with status badges, hours, and audience, and the ability to create/edit activities linked to a report via ActivityFormPage. Ensure activities are correctly fetched and displayed for each report.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-8"
+          "msg-6"
         ],
         "quotes": [
-          "no dashboard insira o publico geral no periodo do mes o acumulado ou datra customizada"
+          "re insira os campos e funcioanlidade relacionada as atividades adicionadas"
         ]
       },
       "acceptanceCriteria": [
-        "A 'Público Geral' KPI card is visible on the DashboardPage.",
-        "A period selector with three options is rendered near or within the KPI card: 'Mês Atual', 'Acumulado', 'Período Customizado'.",
-        "Selecting 'Mês Atual' fetches and displays the audience total for the current calendar month and year.",
-        "Selecting 'Acumulado' fetches and displays the cumulative audience total across all records.",
-        "Selecting 'Período Customizado' reveals two month+year pickers (start and end); the card updates when valid dates are selected.",
-        "The card displays a loading state while the query is in flight and an error state if the query fails.",
-        "The KPI card uses the existing KPICard component and visual design system for consistency."
+        "The 'Add Activity' button appears on each report detail/list view for editable reports",
+        "The ActivitiesList component renders activity cards with all fields (status badge, hours, audience, classification, etc.)",
+        "Clicking 'Add Activity' navigates to ActivityFormPage pre-linked to the correct report",
+        "Activities saved for a report are fetched and displayed correctly under that report",
+        "All activity form fields (classification, status, audience profiles, products, evidence, accessibility, quantitative goals) are present and functional"
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Ensure the application loads and renders correctly without blank screen or crash on startup. Investigate and fix any runtime errors or missing imports that may have caused Version 21 to fail to open.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-6"
+        ],
+        "quotes": [
+          "a versao 21 nao abriu"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The application loads successfully without a blank screen or unhandled runtime error",
+        "All pages navigate correctly without crashing",
+        "No console errors related to missing components or broken imports on initial load"
       ]
     }
   ],
   "constraints": [
-    "Do not modify any files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui.",
-    "Reuse the existing KPICard component for the new metric display.",
-    "All Motoko logic must remain in the single main actor (backend/main.mo)."
+    "Do not change the backend data schema or existing Motoko actor logic unless required to support the approval button action",
+    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui",
+    "Approval button must respect existing role-based authorization (coordinator/admin only)"
   ],
   "nonGoals": [
-    "Changing the visual theme or layout of any existing dashboard charts.",
-    "Adding audience breakdown by demographic profile to this new KPI (that already exists in AudienceByProfileChart).",
-    "Modifying the existing month/museum filter controls on the dashboard unrelated to the new Público Geral metric."
+    "Redesigning the overall UI layout or color theme",
+    "Adding new backend endpoints beyond what is needed for report approval",
+    "Changing the PDF or Excel export functionality"
   ],
   "imageRequirements": {
     "required": [],

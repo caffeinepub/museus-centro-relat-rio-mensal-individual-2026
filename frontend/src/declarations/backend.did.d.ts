@@ -258,6 +258,24 @@ export interface Report {
   'consolidatedGoals' : [] | [string],
   'sendDate' : [] | [Time],
 }
+export interface ReportCreate {
+  'difficulties' : string,
+  'status' : Status,
+  'expectedImpact' : string,
+  'suggestions' : string,
+  'authorId' : Principal,
+  'otherMuseum' : [] | [string],
+  'identifiedOpportunity' : string,
+  'professionalName' : string,
+  'role' : string,
+  'year' : Year,
+  'workedAtOtherMuseum' : boolean,
+  'positivePoints' : string,
+  'mainMuseum' : MuseumLocation,
+  'executiveSummary' : string,
+  'referenceMonth' : Month,
+  'opportunityCategory' : string,
+}
 export type ReportId = string;
 export type Status = { 'submitted' : null } |
   { 'underReview' : null } |
@@ -323,7 +341,7 @@ export interface _SERVICE {
   'approveUser' : ActorMethod<[Principal], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createActivity' : ActorMethod<[ActivityCreate], ActivityId>,
-  'createReport' : ActorMethod<[Report], ReportId>,
+  'createReport' : ActorMethod<[ReportCreate], ReportId>,
   /**
    * / Delete an activity.
    * / Coordinators and admins can delete any activity.
@@ -385,6 +403,10 @@ export interface _SERVICE {
    * / downgraded to #coordinator.
    */
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  /**
+   * / Search activities by name.
+   * / Requires at least #user permission to prevent anonymous data harvesting.
+   */
   'searchActivitiesByName' : ActorMethod<[string], Array<ActivitySearchResult>>,
   /**
    * / Set approval status for a user.

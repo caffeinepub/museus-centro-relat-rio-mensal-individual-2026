@@ -154,8 +154,6 @@ export const Status = IDL.Variant({
   'analysis' : IDL.Null,
   'draft' : IDL.Null,
 });
-export const ExternalBlob = IDL.Vec(IDL.Nat8);
-export const Time = IDL.Int;
 export const Year = IDL.Nat;
 export const Month = IDL.Variant({
   'may' : IDL.Null,
@@ -169,34 +167,23 @@ export const Month = IDL.Variant({
   'august' : IDL.Null,
   'october' : IDL.Null,
 });
-export const Report = IDL.Record({
-  'id' : ReportId,
+export const ReportCreate = IDL.Record({
   'difficulties' : IDL.Text,
   'status' : Status,
-  'signature' : IDL.Opt(IDL.Text),
-  'coordinatorSignature' : IDL.Opt(ExternalBlob),
   'expectedImpact' : IDL.Text,
   'suggestions' : IDL.Text,
   'authorId' : IDL.Principal,
   'otherMuseum' : IDL.Opt(IDL.Text),
   'identifiedOpportunity' : IDL.Text,
   'professionalName' : IDL.Text,
-  'protocolNumber' : IDL.Text,
-  'approvedAt' : IDL.Opt(Time),
   'role' : IDL.Text,
   'year' : Year,
   'workedAtOtherMuseum' : IDL.Bool,
-  'submittedAt' : IDL.Opt(Time),
   'positivePoints' : IDL.Text,
-  'generalExecutiveSummary' : IDL.Opt(IDL.Text),
   'mainMuseum' : MuseumLocation,
   'executiveSummary' : IDL.Text,
-  'coordinatorComments' : IDL.Opt(IDL.Text),
-  'institutionalObservations' : IDL.Opt(IDL.Text),
   'referenceMonth' : Month,
   'opportunityCategory' : IDL.Text,
-  'consolidatedGoals' : IDL.Opt(IDL.Text),
-  'sendDate' : IDL.Opt(Time),
 });
 export const Activity = IDL.Record({
   'id' : ActivityId,
@@ -240,6 +227,37 @@ export const Activity = IDL.Record({
   'contributionPercent' : IDL.Opt(IDL.Float64),
   'accessibilityOptions' : IDL.Vec(AccessibilityOption),
   'classification' : Classification,
+});
+export const ExternalBlob = IDL.Vec(IDL.Nat8);
+export const Time = IDL.Int;
+export const Report = IDL.Record({
+  'id' : ReportId,
+  'difficulties' : IDL.Text,
+  'status' : Status,
+  'signature' : IDL.Opt(IDL.Text),
+  'coordinatorSignature' : IDL.Opt(ExternalBlob),
+  'expectedImpact' : IDL.Text,
+  'suggestions' : IDL.Text,
+  'authorId' : IDL.Principal,
+  'otherMuseum' : IDL.Opt(IDL.Text),
+  'identifiedOpportunity' : IDL.Text,
+  'professionalName' : IDL.Text,
+  'protocolNumber' : IDL.Text,
+  'approvedAt' : IDL.Opt(Time),
+  'role' : IDL.Text,
+  'year' : Year,
+  'workedAtOtherMuseum' : IDL.Bool,
+  'submittedAt' : IDL.Opt(Time),
+  'positivePoints' : IDL.Text,
+  'generalExecutiveSummary' : IDL.Opt(IDL.Text),
+  'mainMuseum' : MuseumLocation,
+  'executiveSummary' : IDL.Text,
+  'coordinatorComments' : IDL.Opt(IDL.Text),
+  'institutionalObservations' : IDL.Opt(IDL.Text),
+  'referenceMonth' : Month,
+  'opportunityCategory' : IDL.Text,
+  'consolidatedGoals' : IDL.Opt(IDL.Text),
+  'sendDate' : IDL.Opt(Time),
 });
 export const AppUserRole = IDL.Variant({
   'coordination' : IDL.Null,
@@ -359,7 +377,7 @@ export const idlService = IDL.Service({
   'approveUser' : IDL.Func([IDL.Principal], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'createActivity' : IDL.Func([ActivityCreate], [ActivityId], []),
-  'createReport' : IDL.Func([Report], [ReportId], []),
+  'createReport' : IDL.Func([ReportCreate], [ReportId], []),
   'deleteActivity' : IDL.Func([ActivityId], [], []),
   'deleteReport' : IDL.Func([ReportId], [], []),
   'deleteUserProfile' : IDL.Func([IDL.Principal], [], []),
@@ -573,8 +591,6 @@ export const idlFactory = ({ IDL }) => {
     'analysis' : IDL.Null,
     'draft' : IDL.Null,
   });
-  const ExternalBlob = IDL.Vec(IDL.Nat8);
-  const Time = IDL.Int;
   const Year = IDL.Nat;
   const Month = IDL.Variant({
     'may' : IDL.Null,
@@ -588,34 +604,23 @@ export const idlFactory = ({ IDL }) => {
     'august' : IDL.Null,
     'october' : IDL.Null,
   });
-  const Report = IDL.Record({
-    'id' : ReportId,
+  const ReportCreate = IDL.Record({
     'difficulties' : IDL.Text,
     'status' : Status,
-    'signature' : IDL.Opt(IDL.Text),
-    'coordinatorSignature' : IDL.Opt(ExternalBlob),
     'expectedImpact' : IDL.Text,
     'suggestions' : IDL.Text,
     'authorId' : IDL.Principal,
     'otherMuseum' : IDL.Opt(IDL.Text),
     'identifiedOpportunity' : IDL.Text,
     'professionalName' : IDL.Text,
-    'protocolNumber' : IDL.Text,
-    'approvedAt' : IDL.Opt(Time),
     'role' : IDL.Text,
     'year' : Year,
     'workedAtOtherMuseum' : IDL.Bool,
-    'submittedAt' : IDL.Opt(Time),
     'positivePoints' : IDL.Text,
-    'generalExecutiveSummary' : IDL.Opt(IDL.Text),
     'mainMuseum' : MuseumLocation,
     'executiveSummary' : IDL.Text,
-    'coordinatorComments' : IDL.Opt(IDL.Text),
-    'institutionalObservations' : IDL.Opt(IDL.Text),
     'referenceMonth' : Month,
     'opportunityCategory' : IDL.Text,
-    'consolidatedGoals' : IDL.Opt(IDL.Text),
-    'sendDate' : IDL.Opt(Time),
   });
   const Activity = IDL.Record({
     'id' : ActivityId,
@@ -659,6 +664,37 @@ export const idlFactory = ({ IDL }) => {
     'contributionPercent' : IDL.Opt(IDL.Float64),
     'accessibilityOptions' : IDL.Vec(AccessibilityOption),
     'classification' : Classification,
+  });
+  const ExternalBlob = IDL.Vec(IDL.Nat8);
+  const Time = IDL.Int;
+  const Report = IDL.Record({
+    'id' : ReportId,
+    'difficulties' : IDL.Text,
+    'status' : Status,
+    'signature' : IDL.Opt(IDL.Text),
+    'coordinatorSignature' : IDL.Opt(ExternalBlob),
+    'expectedImpact' : IDL.Text,
+    'suggestions' : IDL.Text,
+    'authorId' : IDL.Principal,
+    'otherMuseum' : IDL.Opt(IDL.Text),
+    'identifiedOpportunity' : IDL.Text,
+    'professionalName' : IDL.Text,
+    'protocolNumber' : IDL.Text,
+    'approvedAt' : IDL.Opt(Time),
+    'role' : IDL.Text,
+    'year' : Year,
+    'workedAtOtherMuseum' : IDL.Bool,
+    'submittedAt' : IDL.Opt(Time),
+    'positivePoints' : IDL.Text,
+    'generalExecutiveSummary' : IDL.Opt(IDL.Text),
+    'mainMuseum' : MuseumLocation,
+    'executiveSummary' : IDL.Text,
+    'coordinatorComments' : IDL.Opt(IDL.Text),
+    'institutionalObservations' : IDL.Opt(IDL.Text),
+    'referenceMonth' : Month,
+    'opportunityCategory' : IDL.Text,
+    'consolidatedGoals' : IDL.Opt(IDL.Text),
+    'sendDate' : IDL.Opt(Time),
   });
   const AppUserRole = IDL.Variant({
     'coordination' : IDL.Null,
@@ -778,7 +814,7 @@ export const idlFactory = ({ IDL }) => {
     'approveUser' : IDL.Func([IDL.Principal], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'createActivity' : IDL.Func([ActivityCreate], [ActivityId], []),
-    'createReport' : IDL.Func([Report], [ReportId], []),
+    'createReport' : IDL.Func([ReportCreate], [ReportId], []),
     'deleteActivity' : IDL.Func([ActivityId], [], []),
     'deleteReport' : IDL.Func([ReportId], [], []),
     'deleteUserProfile' : IDL.Func([IDL.Principal], [], []),

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   createRouter,
   createRoute,
@@ -6,21 +6,33 @@ import {
   RouterProvider,
   Outlet,
 } from '@tanstack/react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from 'next-themes';
+import { Toaster } from '@/components/ui/sonner';
 import { useInternetIdentity } from './hooks/useInternetIdentity';
 import { useGetCallerUserProfile, useIsCallerApproved } from './hooks/useQueries';
-import { AppUserRole } from './backend';
 import Sidebar from './components/Sidebar';
 import ProfileSetupModal from './components/ProfileSetupModal';
-import PendingApprovalPage from './pages/PendingApprovalPage';
+import DashboardPage from './pages/DashboardPage';
 import ReportsListPage from './pages/ReportsListPage';
 import ReportFormPage from './pages/ReportFormPage';
 import ActivityFormPage from './pages/ActivityFormPage';
-import DashboardPage from './pages/DashboardPage';
 import ApprovalsPage from './pages/ApprovalsPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ConsolidatedMuseumPage from './pages/ConsolidatedMuseumPage';
+import PendingApprovalPage from './pages/PendingApprovalPage';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
 
 // ── Login Page ─────────────────────────────────────────────────────────────
+
 function LoginPage() {
   const { login, loginStatus } = useInternetIdentity();
   const isLoggingIn = loginStatus === 'logging-in';
@@ -79,74 +91,60 @@ function LoginPage() {
   );
 }
 
-// ── Index Page (role-based redirect) ──────────────────────────────────────
-function IndexPage() {
-  const { identity } = useInternetIdentity();
-  const { data: userProfile } = useGetCallerUserProfile();
+// ── Layout ─────────────────────────────────────────────────────────────────
 
-  const isCoordOrAdmin =
-    userProfile?.appRole === AppUserRole.coordination ||
-    userProfile?.appRole === AppUserRole.administration;
-
-  if (!identity) return <LoginPage />;
-  if (isCoordOrAdmin) return <DashboardPage />;
-  return <ReportsListPage />;
-}
-
-// ── App Shell (authenticated) ──────────────────────────────────────────────
-function AppShell() {
-  const { identity } = useInternetIdentity();
-  const { data: userProfile, isLoading: profileLoading, isFetched: profileFetched } = useGetCallerUserProfile();
-  const { data: isApproved, isLoading: approvalLoading } = useIsCallerApproved();
-  const [showProfileSetup, setShowProfileSetup] = useState(false);
-
+function AppLayout() {
+  const { identity, isInitializing } = useInternetIdentity();
   const isAuthenticated = !!identity;
-  const isCoordination = userProfile?.appRole === AppUserRole.coordination;
-  const isAdministration = userProfile?.appRole === AppUserRole.administration;
-  const isCoordOrAdmin = isCoordination || isAdministration;
 
-  // Show profile setup modal when profile is not set
-  useEffect(() => {
-    if (isAuthenticated && profileFetched && userProfile === null) {
-      setShowProfileSetup(true);
-    } else if (userProfile !== null && userProfile !== undefined) {
-      setShowProfileSetup(false);
-    }
-  }, [isAuthenticated, profileFetched, userProfile]);
+  const {
+    data: userProfile,
+    isLoading: profileLoading,
+    isFetched: profileFetched,
+  } = useGetCallerUserProfile();
 
-  if (!isAuthenticated) {
-    return <LoginPage />;
-  }
+  const { data: isApproved, isLoading: approvalLoading } = useIsCallerApproved();
 
-  // Loading state
-  if (profileLoading || approvalLoading) {
+  const showProfileSetup =
+    isAuthenticated && !profileLoading && profileFetched && userProfile === null;
+
+  const showPendingApproval =
+    isAuthenticated &&
+    !profileLoading &&
+    profileFetched &&
+    userProfile !== null &&
+    !approvalLoading &&
+    isApproved === false;
+
+  if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <svg className="animate-spin h-8 w-8 text-primary" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <p className="text-muted-foreground">Carregando...</p>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <img src="/assets/generated/museus-centro-logo.dim_256x256.png" alt="Logo" className="h-16 w-16 opacity-80" />
+          <div className="h-1 w-32 bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full animate-pulse w-1/2" />
+          </div>
         </div>
       </div>
     );
   }
 
-  // Profile setup — ProfileSetupModal manages its own open state via Dialog open={true}
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
   if (showProfileSetup) {
     return <ProfileSetupModal />;
   }
 
-  // Pending approval (non-coordinator/admin users who are not approved)
-  if (!isCoordOrAdmin && isApproved === false) {
+  if (showPendingApproval) {
     return <PendingApprovalPage />;
   }
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar isApproved={isApproved ?? false} />
-      <main className="flex-1 overflow-auto">
+      <Sidebar />
+      <main className="flex-1 overflow-hidden">
         <Outlet />
       </main>
     </div>
@@ -154,14 +152,15 @@ function AppShell() {
 }
 
 // ── Routes ─────────────────────────────────────────────────────────────────
+
 const rootRoute = createRootRoute({
-  component: AppShell,
+  component: AppLayout,
 });
 
-const indexRoute = createRoute({
+const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: IndexPage,
+  component: DashboardPage,
 });
 
 const reportsRoute = createRoute({
@@ -170,34 +169,28 @@ const reportsRoute = createRoute({
   component: ReportsListPage,
 });
 
-const newReportRoute = createRoute({
+const reportNewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/reports/new',
   component: ReportFormPage,
 });
 
-const editReportRoute = createRoute({
+const reportEditRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/reports/$reportId',
   component: ReportFormPage,
 });
 
-const newActivityRoute = createRoute({
+const activityNewRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/reports/$reportId/activities/new',
+  path: '/activities/new',
   component: ActivityFormPage,
 });
 
-const editActivityRoute = createRoute({
+const activityEditRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/reports/$reportId/activities/$activityId',
+  path: '/activities/$activityId',
   component: ActivityFormPage,
-});
-
-const dashboardRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/dashboard',
-  component: DashboardPage,
 });
 
 const approvalsRoute = createRoute({
@@ -219,13 +212,12 @@ const consolidatedRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
-  indexRoute,
-  reportsRoute,
-  newReportRoute,
-  editReportRoute,
-  newActivityRoute,
-  editActivityRoute,
   dashboardRoute,
+  reportsRoute,
+  reportNewRoute,
+  reportEditRoute,
+  activityNewRoute,
+  activityEditRoute,
   approvalsRoute,
   userManagementRoute,
   consolidatedRoute,
@@ -239,6 +231,15 @@ declare module '@tanstack/react-router' {
   }
 }
 
+// ── App ────────────────────────────────────────────────────────────────────
+
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+        <Toaster />
+      </QueryClientProvider>
+    </ThemeProvider>
+  );
 }

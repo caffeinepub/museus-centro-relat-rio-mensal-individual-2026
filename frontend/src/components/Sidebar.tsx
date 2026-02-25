@@ -11,7 +11,6 @@ import {
   Users,
   BarChart3,
   LogOut,
-  Building2,
   Target,
   ChevronRight,
 } from 'lucide-react';
@@ -69,7 +68,7 @@ const NAV_ITEMS: NavItem[] = [
 export default function Sidebar({ isApproved = true }: SidebarProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { clear, identity } = useInternetIdentity();
+  const { clear } = useInternetIdentity();
   const queryClient = useQueryClient();
   const { data: userProfile } = useGetCallerUserProfile();
   const isCoordinadorGeral = useIsCoordinadorGeral(userProfile);

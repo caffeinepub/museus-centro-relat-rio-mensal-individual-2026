@@ -1,13 +1,15 @@
 # Specification
 
 ## Summary
-**Goal:** Add a "Público Geral" (general audience) KPI card to the Dashboard with period filter options: current month, cumulative, and custom date range.
+**Goal:** Fix application startup crash, restore activity fields/functionality in report pages, and add an "Approve Report" button in the Coordinator view.
 
 **Planned changes:**
-- Add a backend query function in `backend/main.mo` that returns the total `publicoGeral` across approved/submitted reports, supporting three filter modes: specific month+year, cumulative (all time), and custom date range (start/end month+year)
-- Add a "Público Geral" KPI card to the Dashboard page using the existing KPICard component
-- Add a period selector control with three options: "Mês Atual", "Acumulado", and "Período Customizado"
-- When "Período Customizado" is selected, show start and end month+year pickers
-- The KPI card updates reactively based on the selected period, with loading and error states
+- Investigate and fix runtime errors or missing imports causing a blank screen on startup
+- Add an "Aprovar Relatório" (Approve Report) button in ApprovalsPage and/or ApprovalDetailView, visible only to coordinator/admin roles, that triggers the existing approval mutation and updates the report status
+- Restore the "Adicionar Atividade" (Add Activity) button on report detail/list views for editable reports
+- Restore the ActivitiesList component displaying activity cards with status badges, hours, audience, and other fields
+- Restore navigation from "Add Activity" to ActivityFormPage pre-linked to the correct report
+- Ensure all activity form fields (classification, status, audience profiles, products, evidence, accessibility, quantitative goals) are present and functional
+- Ensure activities are correctly fetched and displayed per report
 
-**User-visible outcome:** Users can view the total general audience on the dashboard and filter it by current month, all-time cumulative total, or a custom date range they define.
+**User-visible outcome:** The application opens without errors, coordinators can approve submitted reports via a dedicated button, and all activity-related features (listing, creating, and editing activities linked to reports) work correctly.

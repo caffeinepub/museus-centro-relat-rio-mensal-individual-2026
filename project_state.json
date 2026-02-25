@@ -1,16 +1,36 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Dashboard project with file upload, activity list, and audience metrics features. User wants general public metrics displayed on the dashboard with period filters: monthly, cumulative, or custom date range.",
-  "architectural_notes": [],
-  "known_issues": [],
-  "isFixRequest": false,
+  "summary": "Web application with Coordinator view. Needs an 'Aprovar Relatório' (Approve Report) button in the Coordinator view, and restoration of fields and functionality related to added activities.",
+  "architectural_notes": [
+    "Application has a Coordinator view (Visão Coordenador) with report management functionality"
+  ],
+  "known_issues": [
+    "Version 21 failed to open/load correctly"
+  ],
+  "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-add-a-p-blico-geral-kpi-card-to-the-dashboard-page-that-displays-the-total-general-audience-value-include-a-period-selector-control-allowing-the-user-to-switch-between-three-modes-m-s-atual-current-month-acumulado-cumulative-and-per-odo-customizado-custom-date-range-when-per-odo-customizado-is-selected-show-start-and-end-month-year-pickers-the-kpi-card-should-update-reactively-when-the-period-selection-changes",
-      "title": "Add a 'Público Geral' KPI card to the Dashboard page that displays the total general audience value. Include a period selector control allowing the user to switch between three modes: 'Mês Atual' (current month), 'Acumulado' (cumulative), and 'Período Customizado' (custom date range). When 'Período Customizado' is selected, show start and end month/year pickers. The KPI card should update reactively when the period selection changes.",
+      "id": "feature-add-an-approve-report-aprovar-relat-rio-button-in-the-coordinator-view-approvalspage-and-or-approvaldetailview-that-allows-coordinators-to-approve-a-submitted-report-the-button-should-trigger-the-existing-approval-mutation-and-be-visible-only-to-users-with-the-coordination-or-administration-role",
+      "title": "Add an 'Approve Report' (Aprovar Relatório) button in the Coordinator view (ApprovalsPage and/or ApprovalDetailView) that allows coordinators to approve a submitted report. The button should trigger the existing approval mutation and be visible only to users with the coordination or administration role.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-restore-all-activity-related-fields-and-functionality-in-the-report-pages-this-includes-the-add-activity-nova-atividade-adicionar-atividade-button-on-each-report-s-detail-list-view-the-activitieslist-component-displaying-activity-cards-with-status-badges-hours-and-audience-and-the-ability-to-create-edit-activities-linked-to-a-report-via-activityformpage-ensure-activities-are-correctly-fetched-and-displayed-for-each-report",
+      "title": "Restore all activity-related fields and functionality in the report pages. This includes: the 'Add Activity' (Nova Atividade / Adicionar Atividade) button on each report's detail/list view, the ActivitiesList component displaying activity cards with status badges, hours, and audience, and the ability to create/edit activities linked to a report via ActivityFormPage. Ensure activities are correctly fetched and displayed for each report.",
       "reqIds": [
         "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-the-application-loads-and-renders-correctly-without-blank-screen-or-crash-on-startup-investigate-and-fix-any-runtime-errors-or-missing-imports-that-may-have-caused-version-21-to-fail-to-open",
+      "title": "Ensure the application loads and renders correctly without blank screen or crash on startup. Investigate and fix any runtime errors or missing imports that may have caused Version 21 to fail to open.",
+      "reqIds": [
+        "REQ-3"
       ],
       "version": 1
     }
@@ -18,16 +38,14 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Dashboard: Add 'Público Geral' (general audience) metric with period filter options: current month, cumulative total, or custom date range",
+      "summary": "Add 'Aprovar Relatório' button in the Coordinator view",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Add a backend query function that returns the total general audience ('público geral') aggregated across all approved/submitted reports, supporting three filter modes: (1) a specific month+year, (2) cumulative total (all time), and (3) a custom date range defined by start month+year and end month+year.",
-      "reqIds": [
-        "REQ-1"
-      ],
+      "summary": "Restore fields and functionality related to added activities in reports",
+      "reqIds": [],
       "status": "pending"
     }
   ],

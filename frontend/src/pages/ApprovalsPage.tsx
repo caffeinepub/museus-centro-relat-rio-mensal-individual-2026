@@ -1,104 +1,84 @@
 import React, { useState } from 'react';
-import { Search, Filter, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import { useAllReports } from '../hooks/useQueries';
-import { Status } from '../backend';
-import type { Report } from '../backend';
-import { statusLabel, getMonthLabel, getMuseumLabel, MUSEUM_LOCATIONS, MONTHS } from '../utils/labels';
+import { useAllReports, useGetCallerUserProfile, useIsCoordinadorGeral } from '../hooks/useQueries';
+import { Report, Status, AppUserRole } from '../backend';
+import ApprovalDetailView from '../components/ApprovalDetailView';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import ApprovalDetailView from '../components/ApprovalDetailView';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Search, FileText, Calendar, User, Building2, ChevronRight } from 'lucide-react';
+import { statusLabel, getMuseumLabel, getMonthLabel, MONTHS } from '../utils/labels';
+import { Month } from '../backend';
 
-function getStatusColor(status: Status): string {
+const STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all', label: 'Todos os Status' },
+  { value: Status.submitted, label: statusLabel(Status.submitted) },
+  { value: Status.underReview, label: statusLabel(Status.underReview) },
+  { value: Status.analysis, label: statusLabel(Status.analysis) },
+  { value: Status.approved, label: statusLabel(Status.approved) },
+  { value: Status.requiresAdjustment, label: statusLabel(Status.requiresAdjustment) },
+  { value: Status.draft, label: statusLabel(Status.draft) },
+];
+
+function getStatusBadgeVariant(status: Status): 'default' | 'secondary' | 'outline' | 'destructive' {
   switch (status) {
-    case Status.approved: return 'bg-success/10 text-success border-success/20';
-    case Status.submitted: return 'bg-primary/10 text-primary border-primary/20';
-    case Status.underReview: return 'bg-warning/10 text-warning border-warning/20';
-    case Status.requiresAdjustment: return 'bg-destructive/10 text-destructive border-destructive/20';
-    case Status.draft: return 'bg-muted text-muted-foreground border-border';
-    default: return 'bg-muted text-muted-foreground border-border';
+    case Status.approved: return 'default';
+    case Status.submitted: return 'secondary';
+    case Status.underReview: return 'outline';
+    case Status.requiresAdjustment: return 'destructive';
+    default: return 'outline';
   }
 }
 
 export default function ApprovalsPage() {
-  const { data: reports = [], isLoading } = useAllReports();
+  const { data: reports, isLoading } = useAllReports();
+  const { data: userProfile } = useGetCallerUserProfile();
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
-  const [museumFilter, setMuseumFilter] = useState<string>('all');
 
-  const filteredReports = reports.filter((report) => {
+  const userRole = userProfile?.appRole;
+
+  const filteredReports = (reports ?? []).filter((r) => {
     const matchesSearch =
       !searchTerm ||
-      report.professionalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.protocolNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || report.status === statusFilter;
-    const matchesMonth = monthFilter === 'all' || report.referenceMonth === monthFilter;
-    const matchesMuseum = museumFilter === 'all' || report.mainMuseum === museumFilter;
-    return matchesSearch && matchesStatus && matchesMonth && matchesMuseum;
+      r.professionalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.protocolNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+    const matchesMonth = monthFilter === 'all' || r.referenceMonth === monthFilter;
+    return matchesSearch && matchesStatus && matchesMonth;
   });
 
-  if (selectedReport) {
-    return (
-      <ApprovalDetailView
-        report={selectedReport}
-        onClose={() => setSelectedReport(null)}
-      />
-    );
-  }
+  // Sort: submitted/underReview first, then others
+  const sortedReports = [...filteredReports].sort((a, b) => {
+    const priority = (s: Status) => {
+      if (s === Status.submitted) return 0;
+      if (s === Status.underReview) return 1;
+      if (s === Status.analysis) return 2;
+      if (s === Status.requiresAdjustment) return 3;
+      if (s === Status.approved) return 4;
+      return 5;
+    };
+    return priority(a.status) - priority(b.status);
+  });
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="mb-6">
+    <div className="flex flex-col h-full">
+      <div className="p-6 border-b border-border">
         <h1 className="text-2xl font-bold text-foreground">Aprovações</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Revise e aprove os relatórios enviados pelos profissionais.
+          Gerencie e aprove os relatórios submetidos pelos profissionais
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {[
-          {
-            label: 'Aguardando',
-            value: reports.filter((r) => r.status === Status.submitted).length,
-            icon: Clock,
-            color: 'text-primary',
-          },
-          {
-            label: 'Em Revisão',
-            value: reports.filter((r) => r.status === Status.underReview).length,
-            icon: AlertCircle,
-            color: 'text-warning',
-          },
-          {
-            label: 'Aprovados',
-            value: reports.filter((r) => r.status === Status.approved).length,
-            icon: CheckCircle,
-            color: 'text-success',
-          },
-          {
-            label: 'Total',
-            value: reports.length,
-            icon: Filter,
-            color: 'text-foreground',
-          },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-card border border-border rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <stat.icon className={`w-4 h-4 ${stat.color}`} />
-              <p className="text-sm text-muted-foreground">{stat.label}</p>
-            </div>
-            <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="p-4 border-b border-border space-y-3">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por profissional ou protocolo..."
             value={searchTerm}
@@ -106,89 +86,106 @@ export default function ApprovalsPage() {
             className="pl-9"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            {Object.values(Status).map((s) => (
-              <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={monthFilter} onValueChange={setMonthFilter}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Mês" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os meses</SelectItem>
-            {MONTHS.map((m) => (
-              <SelectItem key={m} value={m}>{getMonthLabel(m)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={museumFilter} onValueChange={setMuseumFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Equipe/Museu" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as equipes</SelectItem>
-            {MUSEUM_LOCATIONS.map((m) => (
-              <SelectItem key={m} value={m}>{getMuseumLabel(m)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={monthFilter} onValueChange={setMonthFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Mês" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Meses</SelectItem>
+              {MONTHS.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {getMonthLabel(m)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Reports Table */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
-        </div>
-      ) : filteredReports.length === 0 ? (
-        <div className="text-center py-16 bg-card border border-border rounded-xl">
-          <CheckCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">Nenhum relatório encontrado</h3>
-          <p className="text-muted-foreground">
-            {reports.length === 0
-              ? 'Nenhum relatório foi enviado ainda.'
-              : 'Nenhum relatório corresponde aos filtros selecionados.'}
-          </p>
-        </div>
-      ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="divide-y divide-border">
-            {filteredReports.map((report) => (
-              <div
-                key={report.id}
-                onClick={() => setSelectedReport(report)}
-                className="p-4 hover:bg-muted/30 cursor-pointer transition-colors"
-              >
-                <div className="flex items-center justify-between gap-4">
+      {/* Report List */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-lg" />
+          ))
+        ) : sortedReports.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground/40 mb-3" />
+            <p className="text-muted-foreground font-medium">Nenhum relatório encontrado</p>
+            <p className="text-muted-foreground/60 text-sm mt-1">
+              Ajuste os filtros para ver mais resultados
+            </p>
+          </div>
+        ) : (
+          sortedReports.map((report) => (
+            <Card
+              key={report.id}
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => setSelectedReport(report)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-muted-foreground font-mono">{report.protocolNumber}</span>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(report.status)}`}
-                      >
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-medium text-sm text-foreground truncate">
+                        {report.professionalName}
+                      </span>
+                      <Badge variant={getStatusBadgeVariant(report.status)} className="text-xs">
                         {statusLabel(report.status)}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {getMonthLabel(report.referenceMonth)} / {report.year.toString()}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Building2 className="h-3 w-3" />
+                        {getMuseumLabel(report.mainMuseum)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {report.role}
                       </span>
                     </div>
-                    <p className="font-medium text-foreground">{report.professionalName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {getMonthLabel(report.referenceMonth)} / {report.year.toString()} · {getMuseumLabel(report.mainMuseum)}
-                    </p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">{report.protocolNumber}</p>
                   </div>
-                  <div className="text-muted-foreground text-sm shrink-0">
-                    Clique para revisar →
-                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-1" />
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Detail Sheet */}
+      <Sheet open={!!selectedReport} onOpenChange={(open) => { if (!open) setSelectedReport(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl p-0 overflow-hidden">
+          {selectedReport && (
+            <ApprovalDetailView
+              report={selectedReport}
+              onClose={() => setSelectedReport(null)}
+              userRole={userRole}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
