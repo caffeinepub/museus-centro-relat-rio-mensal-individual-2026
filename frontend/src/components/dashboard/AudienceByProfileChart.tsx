@@ -1,108 +1,60 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { AudienceBreakdown } from '../../backend';
-import { Users } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
-interface AudienceByProfileChartProps {
-  data: AudienceBreakdown | undefined | null;
+interface AudienceBreakdown {
+  children: number;
+  youth: number;
+  adults: number;
+  elderly: number;
+  pcd: number;
 }
 
-const COLORS = ['#4f86c6', '#6abf69', '#f5a623', '#e05c5c', '#9b59b6'];
+interface Props {
+  data: AudienceBreakdown;
+}
 
-const LABELS: Record<string, string> = {
-  children: 'Crianças',
-  youth: 'Jovens',
-  adults: 'Adultos',
-  elderly: 'Idosos',
-  pcd: 'PCD',
-};
-
-export default function AudienceByProfileChart({ data }: AudienceByProfileChartProps) {
-  if (!data) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Público por Perfil
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-            Nenhum dado de público disponível
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
+export default function AudienceByProfileChart({ data }: Props) {
   const chartData = [
-    { name: LABELS.children, value: Number(data.children ?? 0) },
-    { name: LABELS.youth, value: Number(data.youth ?? 0) },
-    { name: LABELS.adults, value: Number(data.adults ?? 0) },
-    { name: LABELS.elderly, value: Number(data.elderly ?? 0) },
-    { name: LABELS.pcd, value: Number(data.pcd ?? 0) },
-  ].filter((item) => item.value > 0);
+    { name: 'Crianças', value: data.children },
+    { name: 'Jovens', value: data.youth },
+    { name: 'Adultos', value: data.adults },
+    { name: 'Idosos', value: data.elderly },
+    { name: 'PCD', value: data.pcd },
+  ];
 
-  if (chartData.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Público por Perfil
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-            Nenhum dado de público disponível
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-card border border-border rounded-md px-3 py-2 shadow-md">
+          <p className="text-foreground text-sm font-medium">{payload[0].payload.name}</p>
+          <p className="text-primary text-sm">{payload[0].value} pessoas</p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Users className="h-4 w-4" />
-          Público por Perfil
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={220}>
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              innerRadius={50}
-              outerRadius={80}
-              paddingAngle={3}
-              dataKey="value"
-            >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${entry.name}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '6px',
-                fontSize: '12px',
-              }}
-            />
-            <Legend
-              iconType="circle"
-              iconSize={8}
-              wrapperStyle={{ fontSize: '11px' }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <div className="bg-card border border-border rounded-lg p-4">
+      <h3 className="text-foreground font-semibold text-sm mb-4">
+        Público por Perfil
+      </h3>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+          <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+          <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Bar dataKey="value" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

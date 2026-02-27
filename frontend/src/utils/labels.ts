@@ -1,4 +1,4 @@
-import {
+import type {
   MuseumLocation,
   Month,
   Status,
@@ -10,177 +10,241 @@ import {
   ProductRealised,
   Quantity,
   AudienceRange,
-} from '../backend';
+  LocalRealizado,
+  ProdutoRealizado,
+} from '../types';
+import { AppUserRole } from '../backend';
 
 export function getMuseumLabel(museum: MuseumLocation | string): string {
-  switch (museum) {
-    case MuseumLocation.equipePrincipal:
-    case 'equipePrincipal':
-      return 'Equipe Principal';
-    case MuseumLocation.comunicacao:
-    case 'comunicacao':
-      return 'Comunicação';
-    case MuseumLocation.administracao:
-    case 'administracao':
-      return 'Administração';
-    case MuseumLocation.programacao:
-    case 'programacao':
-      return 'Programação';
-    case MuseumLocation.producaoGeral:
-    case 'producaoGeral':
-      return 'Produção Geral';
-    case MuseumLocation.coordenacao:
-    case 'coordenacao':
-      return 'Coordenação';
-    default:
-      return String(museum);
-  }
+  const labels: Record<string, string> = {
+    equipePrincipal: 'Equipe Principal',
+    comunicacao: 'Comunicação',
+    administracao: 'Administração',
+    programacao: 'Programação',
+    producaoGeral: 'Produção Geral',
+    coordenacao: 'Coordenação',
+  };
+  return labels[museum] || String(museum);
 }
 
+export function getTeamLocationLabel(team: string): string {
+  const labels: Record<string, string> = {
+    comunicacao: 'Comunicação',
+    administracao: 'Administração',
+    mhab: 'MHAB',
+    mumo: 'MUMO',
+    mis: 'MIS',
+    empty: '',
+  };
+  return labels[team] ?? String(team);
+}
+
+export const TEAM_LOCATIONS: { value: string; label: string }[] = [
+  { value: 'comunicacao', label: 'Comunicação' },
+  { value: 'administracao', label: 'Administração' },
+  { value: 'mhab', label: 'MHAB' },
+  { value: 'mumo', label: 'MUMO' },
+  { value: 'mis', label: 'MIS' },
+];
+
 export const MUSEUM_LOCATIONS: MuseumLocation[] = [
-  MuseumLocation.equipePrincipal,
-  MuseumLocation.comunicacao,
-  MuseumLocation.administracao,
-  MuseumLocation.programacao,
-  MuseumLocation.producaoGeral,
-  MuseumLocation.coordenacao,
+  'equipePrincipal',
+  'comunicacao',
+  'administracao',
+  'programacao',
+  'producaoGeral',
+  'coordenacao',
 ];
 
 export function monthLabel(month: Month | string): string {
   const labels: Record<string, string> = {
-    [Month.february]: 'Fevereiro',
-    [Month.march]: 'Março',
-    [Month.april]: 'Abril',
-    [Month.may]: 'Maio',
-    [Month.june]: 'Junho',
-    [Month.july]: 'Julho',
-    [Month.august]: 'Agosto',
-    [Month.september]: 'Setembro',
-    [Month.october]: 'Outubro',
-    [Month.november]: 'Novembro',
+    february: 'Fevereiro',
+    march: 'Março',
+    april: 'Abril',
+    may: 'Maio',
+    june: 'Junho',
+    july: 'Julho',
+    august: 'Agosto',
+    september: 'Setembro',
+    october: 'Outubro',
+    november: 'Novembro',
   };
   return labels[month as string] ?? String(month);
 }
 
-/** Alias for monthLabel — accepts a string month key */
-export function getMonthLabel(month: string): string {
-  return monthLabel(month as Month);
+export function getMonthLabel(month: Month | string): string {
+  return monthLabel(month);
 }
+
+export const MONTHS: Month[] = [
+  'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november',
+];
+
+export function getMonthOptions(): { value: Month; label: string }[] {
+  return MONTHS.map(m => ({ value: m, label: monthLabel(m) }));
+}
+
+export const MONTH_ORDER: string[] = [
+  'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november',
+];
 
 export function statusLabel(status: Status | string): string {
   const labels: Record<string, string> = {
-    [Status.draft]: 'Rascunho',
-    [Status.submitted]: 'Enviado',
-    [Status.underReview]: 'Em Revisão',
-    [Status.approved]: 'Aprovado',
-    [Status.analysis]: 'Em análise',
-    [Status.requiresAdjustment]: 'Necessita ajustes',
+    draft: 'Rascunho',
+    submitted: 'Enviado',
+    underReview: 'Em Revisão',
+    approved: 'Aprovado',
+    analysis: 'Em Análise',
+    requiresAdjustment: 'Devolvido',
   };
   return labels[status as string] ?? String(status);
 }
 
-/** Alias for statusLabel */
 export function getStatusLabel(status: Status | string): string {
   return statusLabel(status);
 }
 
-export function activityStatusLabel(status: ActivityStatus): string {
-  const labels: Record<ActivityStatus, string> = {
-    [ActivityStatus.notStarted]: 'Não iniciada',
-    [ActivityStatus.submitted]: 'Enviada',
-    [ActivityStatus.completed]: 'Concluída',
-    [ActivityStatus.rescheduled]: 'Reprogramada',
-    [ActivityStatus.cancelled]: 'Cancelada',
+/**
+ * Returns Tailwind CSS classes for status badge coloring.
+ * submitted=yellow, approved=green, requiresAdjustment=orange, underReview/analysis=blue, draft=gray
+ */
+export function getStatusColor(status: Status | string): string {
+  const colors: Record<string, string> = {
+    draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    submitted: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
+    underReview: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+    approved: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
+    analysis: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+    requiresAdjustment: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
   };
-  return labels[status] ?? status;
+  return colors[status as string] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
 }
 
-export function classificationLabel(c: Classification): string {
-  const labels: Record<Classification, string> = {
-    [Classification.goalLinked]: 'Vinculada à Meta',
-    [Classification.routine]: 'Rotina',
-    [Classification.extra]: 'Extra',
+export function activityStatusLabel(status: ActivityStatus | string): string {
+  const labels: Record<string, string> = {
+    notStarted: 'Não Iniciado',
+    submitted: 'Enviado',
+    completed: 'Concluído',
+    rescheduled: 'Reagendado',
+    cancelled: 'Cancelado',
   };
-  return labels[c] ?? c;
+  return labels[status as string] ?? String(status);
 }
 
-export function goalStatusLabel(gs: GoalStatus): string {
-  const labels: Record<GoalStatus, string> = {
-    [GoalStatus.inProgress]: 'Em andamento',
-    [GoalStatus.partiallyCumplied]: 'Parcialmente cumprida',
-    [GoalStatus.achieved]: 'Alcançada',
-    [GoalStatus.exceeded]: 'Superada',
+export function classificationLabel(classification: Classification | string): string {
+  const labels: Record<string, string> = {
+    goalLinked: 'Vinculada à Meta',
+    routine: 'Rotina',
+    extra: 'Extra',
   };
-  return labels[gs] ?? gs;
+  return labels[classification as string] ?? String(classification);
 }
 
-export function accessibilityOptionLabel(opt: AccessibilityOption): string {
-  const labels: Record<AccessibilityOption, string> = {
-    [AccessibilityOption.none]: 'Nenhuma',
-    [AccessibilityOption.libras]: 'Libras',
-    [AccessibilityOption.audioDescription]: 'Audiodescrição',
-    [AccessibilityOption.tactileMaterial]: 'Material tátil',
-    [AccessibilityOption.other]: 'Outro',
+export function goalStatusLabel(goalStatus: GoalStatus | string): string {
+  const labels: Record<string, string> = {
+    inProgress: 'Em Andamento',
+    partiallyCumplied: 'Parcialmente Cumprida',
+    achieved: 'Alcançada',
+    exceeded: 'Superada',
   };
-  return labels[opt] ?? opt;
+  return labels[goalStatus as string] ?? String(goalStatus);
 }
 
-export function evidenceTypeLabel(et: EvidenceType): string {
-  const labels: Record<EvidenceType, string> = {
-    [EvidenceType.photos]: 'Fotos',
-    [EvidenceType.attendanceList]: 'Lista de presença',
-    [EvidenceType.report]: 'Relatório',
-    [EvidenceType.graphicMaterial]: 'Material gráfico',
-    [EvidenceType.other]: 'Outro',
+export function accessibilityOptionLabel(option: AccessibilityOption | string): string {
+  const labels: Record<string, string> = {
+    none: 'Nenhuma',
+    libras: 'Libras',
+    audioDescription: 'Audiodescrição',
+    tactileMaterial: 'Material Tátil',
+    other: 'Outro',
   };
-  return labels[et] ?? et;
+  return labels[option as string] ?? String(option);
 }
 
-export function productRealisedLabel(pr: ProductRealised): string {
-  const labels: Record<ProductRealised, string> = {
-    [ProductRealised.oficinaRealizada]: 'Oficina realizada',
-    [ProductRealised.relatorioEntregue]: 'Relatório entregue',
-    [ProductRealised.exposicaoMontada]: 'Exposição montada',
-    [ProductRealised.eventoExecutado]: 'Evento executado',
-    [ProductRealised.planoDeAcaoElaborado]: 'Plano de ação elaborado',
-    [ProductRealised.materialGraficoProduzido]: 'Material gráfico produzido',
-    [ProductRealised.conteudoDigitalPublicado]: 'Conteúdo digital publicado',
-    [ProductRealised.pesquisaConcluida]: 'Pesquisa concluída',
-    [ProductRealised.reuniaoRegistrada]: 'Reunião registrada',
-    [ProductRealised.naoSeAplica]: 'Não se aplica',
-    [ProductRealised.outro]: 'Outro',
+export function evidenceTypeLabel(evidence: EvidenceType | string): string {
+  const labels: Record<string, string> = {
+    photos: 'Fotos',
+    attendanceList: 'Lista de Presença',
+    report: 'Relatório',
+    graphicMaterial: 'Material Gráfico',
+    other: 'Outro',
   };
-  return labels[pr] ?? pr;
+  return labels[evidence as string] ?? String(evidence);
 }
 
-export function quantityLabel(q: Quantity): string {
-  const labels: Record<Quantity, string> = {
-    [Quantity.one]: '1',
-    [Quantity.two]: '2',
-    [Quantity.three]: '3',
-    [Quantity.four]: '4',
-    [Quantity.five]: '5',
-    [Quantity.six]: '6',
-    [Quantity.seven]: '7',
-    [Quantity.eight]: '8',
-    [Quantity.nine]: '9',
-    [Quantity.ten]: '10',
-    [Quantity.maisDeDez]: 'Mais de 10',
+export function productRealisedLabel(product: ProductRealised | string): string {
+  const labels: Record<string, string> = {
+    oficinaRealizada: 'Oficina Realizada',
+    relatorioEntregue: 'Relatório Entregue',
+    exposicaoMontada: 'Exposição Montada',
+    eventoExecutado: 'Evento Executado',
+    planoDeAcaoElaborado: 'Plano de Ação Elaborado',
+    materialGraficoProduzido: 'Material Gráfico Produzido',
+    conteudoDigitalPublicado: 'Conteúdo Digital Publicado',
+    pesquisaConcluida: 'Pesquisa Concluída',
+    reuniaoRegistrada: 'Reunião Registrada',
+    naoSeAplica: 'Não se Aplica',
+    outro: 'Outro',
   };
-  return labels[q] ?? q;
+  return labels[product as string] ?? String(product);
 }
 
-export function audienceRangeLabel(ar: AudienceRange): string {
-  const labels: Record<AudienceRange, string> = {
-    [AudienceRange.zeroToTwenty]: '0 a 20 pessoas',
-    [AudienceRange.twentyOneToFifty]: '21 a 50 pessoas',
-    [AudienceRange.fiftyOneToHundred]: '51 a 100 pessoas',
-    [AudienceRange.hundredOneToTwoHundred]: '101 a 200 pessoas',
-    [AudienceRange.twoHundredOneToFiveHundred]: '201 a 500 pessoas',
-    [AudienceRange.aboveFiveHundred]: 'Acima de 500 pessoas',
-    [AudienceRange.naoSeAplica]: 'Não se aplica',
+export function quantityLabel(quantity: Quantity | string): string {
+  const labels: Record<string, string> = {
+    one: '1', two: '2', three: '3', four: '4', five: '5',
+    six: '6', seven: '7', eight: '8', nine: '9', ten: '10',
+    maisDeDez: 'Mais de 10',
   };
-  return labels[ar] ?? ar;
+  return labels[quantity as string] ?? String(quantity);
+}
+
+export function audienceRangeLabel(range: AudienceRange | string): string {
+  const labels: Record<string, string> = {
+    zeroToTwenty: '0 a 20',
+    twentyOneToFifty: '21 a 50',
+    fiftyOneToHundred: '51 a 100',
+    hundredOneToTwoHundred: '101 a 200',
+    twoHundredOneToFiveHundred: '201 a 500',
+    aboveFiveHundred: 'Acima de 500',
+    naoSeAplica: 'Não se Aplica',
+  };
+  return labels[range as string] ?? String(range);
+}
+
+export function getLocalRealizadoLabel(local: LocalRealizado | string): string {
+  const labels: Record<string, string> = {
+    MHAB: 'MHAB',
+    MUMO: 'MUMO',
+    MIS: 'MIS',
+    Outro: 'Outro',
+  };
+  return labels[local as string] ?? String(local);
+}
+
+export function getProdutoRealizadoLabel(produto: ProdutoRealizado | string): string {
+  const labels: Record<string, string> = {
+    coberturaFotografica: 'Cobertura Fotográfica',
+    posts: 'Posts',
+    releases: 'Releases',
+    textoExpografico: 'Texto Expográfico',
+    textoCatalogo: 'Texto Catálogo',
+    designCatalogo: 'Design Catálogo',
+    coberturaDeVideo: 'Cobertura de Vídeo',
+    outros: 'Outros',
+  };
+  return labels[produto as string] ?? String(produto);
+}
+
+export function getRoleLabel(role: AppUserRole | string): string {
+  const labels: Record<string, string> = {
+    [AppUserRole.coordination]: 'Coordenação',
+    [AppUserRole.coordinator]: 'Coordenador',
+    [AppUserRole.administration]: 'Administração',
+    [AppUserRole.professional]: 'Profissional',
+  };
+  return labels[role as string] ?? String(role);
 }
 
 export const PROFESSIONAL_ROLES = [
@@ -203,68 +267,25 @@ export const COORDINATION_GENERAL_ROLE = 'Coordenação Geral (Daniel Perini)';
 
 export function isAbove100Audience(range: AudienceRange): boolean {
   return (
-    range === AudienceRange.hundredOneToTwoHundred ||
-    range === AudienceRange.twoHundredOneToFiveHundred ||
-    range === AudienceRange.aboveFiveHundred
+    range === 'hundredOneToTwoHundred' ||
+    range === 'twoHundredOneToFiveHundred' ||
+    range === 'aboveFiveHundred'
   );
 }
 
-export const MONTH_ORDER: string[] = [
-  'february',
-  'march',
-  'april',
-  'may',
-  'june',
-  'july',
-  'august',
-  'september',
-  'october',
-  'november',
-];
-
-/** Ordered array of Month enum values (matches MONTH_ORDER) */
-export const MONTHS: Month[] = [
-  Month.february,
-  Month.march,
-  Month.april,
-  Month.may,
-  Month.june,
-  Month.july,
-  Month.august,
-  Month.september,
-  Month.october,
-  Month.november,
-];
-
-/** Returns an array of { value, label } for all Month enum values */
-export function getMonthOptions(): { value: Month; label: string }[] {
-  return MONTHS.map((m) => ({ value: m, label: monthLabel(m) }));
-}
-
-/** Formats a bigint audience number with locale-aware thousand separators */
-export function formatAudienceNumber(audience: bigint): string {
-  return Number(audience).toLocaleString('pt-BR');
-}
-
-/** Returns the current calendar month as a Month enum value, or null if outside the valid range */
 export function getCurrentMonth(): Month | null {
-  const jsMonth = new Date().getMonth() + 1; // 1-12
+  const jsMonth = new Date().getMonth() + 1;
   const monthMap: Record<number, Month> = {
-    2: Month.february,
-    3: Month.march,
-    4: Month.april,
-    5: Month.may,
-    6: Month.june,
-    7: Month.july,
-    8: Month.august,
-    9: Month.september,
-    10: Month.october,
-    11: Month.november,
+    2: 'february', 3: 'march', 4: 'april', 5: 'may', 6: 'june',
+    7: 'july', 8: 'august', 9: 'september', 10: 'october', 11: 'november',
   };
   return monthMap[jsMonth] ?? null;
 }
 
-/** Returns the current calendar year */
 export function getCurrentYear(): number {
   return new Date().getFullYear();
+}
+
+export function formatAudienceNumber(audience: number | bigint): string {
+  return Number(audience).toLocaleString('pt-BR');
 }

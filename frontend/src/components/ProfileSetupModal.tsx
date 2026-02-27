@@ -1,95 +1,112 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { useSaveCallerUserProfile } from '../hooks/useQueries';
+import { AppUserRole, TeamLocation } from '../backend';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useSaveCallerUserProfile } from '../hooks/useQueries';
-import { AppUserRole, MuseumLocation } from '../backend';
-import { toast } from 'sonner';
-import { User } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-export default function ProfileSetupModal() {
+interface ProfileSetupModalProps {
+  onComplete: () => void;
+}
+
+const TEAM_OPTIONS = [
+  { value: TeamLocation.comunicacao, label: 'Comunicação' },
+  { value: TeamLocation.administracao, label: 'Administração' },
+  { value: TeamLocation.mhab, label: 'MHAB' },
+  { value: TeamLocation.mumo, label: 'MUMO' },
+  { value: TeamLocation.mis, label: 'MIS' },
+];
+
+export default function ProfileSetupModal({ onComplete }: ProfileSetupModalProps) {
   const [name, setName] = useState('');
-  const [appRole, setAppRole] = useState<AppUserRole>(AppUserRole.professional);
-  const { mutateAsync: saveProfile, isPending } = useSaveCallerUserProfile();
+  const [team, setTeam] = useState<TeamLocation | ''>('');
+  const saveProfile = useSaveCallerUserProfile();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      toast.error('Por favor, informe seu nome.');
-      return;
-    }
-    try {
-      await saveProfile({ name: name.trim(), appRole, museum: MuseumLocation.equipePrincipal });
-      toast.success('Perfil configurado com sucesso!');
-    } catch (err) {
-      toast.error('Erro ao salvar perfil. Tente novamente.');
-    }
+    if (!name.trim() || !team) return;
+
+    await saveProfile.mutateAsync({
+      name: name.trim(),
+      appRole: AppUserRole.professional,
+      team: team as TeamLocation,
+    });
+    onComplete();
   };
 
   return (
     <Dialog open={true}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="bg-card border border-border sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <DialogTitle className="text-lg">Configurar Perfil</DialogTitle>
-              <DialogDescription className="text-sm">
-                Bem-vindo ao Museus Centro! Configure seu perfil para continuar.
-              </DialogDescription>
-            </div>
-          </div>
+          <DialogTitle className="text-foreground">Configurar Perfil</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Bem-vindo! Por favor, configure seu perfil para continuar.
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-2">
-            <Label htmlFor="name">Nome Completo *</Label>
+            <Label htmlFor="name" className="text-foreground">
+              Nome Completo
+            </Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Seu nome completo"
               required
+              className="bg-background border-input text-foreground"
             />
           </div>
 
-          <div className="space-y-3">
-            <Label>Perfil de Acesso *</Label>
-            <RadioGroup
-              value={appRole}
-              onValueChange={(v) => setAppRole(v as AppUserRole)}
-              className="space-y-2"
+          <div className="space-y-2">
+            <Label htmlFor="team" className="text-foreground">
+              Equipe Principal
+            </Label>
+            <Select
+              value={team}
+              onValueChange={(val) => setTeam(val as TeamLocation)}
             >
-              <div className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
-                <RadioGroupItem value={AppUserRole.professional} id="role-professional" className="mt-0.5" />
-                <label htmlFor="role-professional" className="cursor-pointer">
-                  <p className="text-sm font-medium">Profissional</p>
-                  <p className="text-xs text-muted-foreground">Cria e edita apenas seus próprios relatórios</p>
-                </label>
-              </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
-                <RadioGroupItem value={AppUserRole.coordination} id="role-coordination" className="mt-0.5" />
-                <label htmlFor="role-coordination" className="cursor-pointer">
-                  <p className="text-sm font-medium">Coordenação</p>
-                  <p className="text-xs text-muted-foreground">Visualiza todos os relatórios</p>
-                </label>
-              </div>
-              <div className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer">
-                <RadioGroupItem value={AppUserRole.administration} id="role-administration" className="mt-0.5" />
-                <label htmlFor="role-administration" className="cursor-pointer">
-                  <p className="text-sm font-medium">Administração</p>
-                  <p className="text-xs text-muted-foreground">Acesso completo e exportação consolidada</p>
-                </label>
-              </div>
-            </RadioGroup>
+              <SelectTrigger className="bg-background border-input text-foreground">
+                <SelectValue placeholder="Selecione sua equipe" />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border">
+                {TEAM_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-foreground">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? 'Salvando...' : 'Confirmar Perfil'}
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={!name.trim() || !team || saveProfile.isPending}
+          >
+            {saveProfile.isPending ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                Salvando...
+              </span>
+            ) : (
+              'Salvar Perfil'
+            )}
           </Button>
         </form>
       </DialogContent>

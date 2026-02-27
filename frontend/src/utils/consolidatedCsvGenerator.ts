@@ -1,31 +1,18 @@
-import { Report, Activity, MuseumLocation, Month } from '../backend';
+import type { Report, Activity } from '@/types';
 
-function getMuseumLocationLabel(museum: MuseumLocation | string): string {
-  switch (museum) {
-    case MuseumLocation.equipePrincipal:
-    case 'equipePrincipal':
-      return 'Equipe Principal';
-    case MuseumLocation.comunicacao:
-    case 'comunicacao':
-      return 'Comunicação';
-    case MuseumLocation.administracao:
-    case 'administracao':
-      return 'Administração';
-    case MuseumLocation.programacao:
-    case 'programacao':
-      return 'Programação';
-    case MuseumLocation.producaoGeral:
-    case 'producaoGeral':
-      return 'Produção Geral';
-    case MuseumLocation.coordenacao:
-    case 'coordenacao':
-      return 'Coordenação';
-    default:
-      return String(museum);
-  }
+function getMuseumLocationLabel(location: string): string {
+  const labels: Record<string, string> = {
+    equipePrincipal: 'Equipe Principal',
+    comunicacao: 'Comunicação',
+    administracao: 'Administração',
+    programacao: 'Programação',
+    producaoGeral: 'Produção Geral',
+    coordenacao: 'Coordenação',
+  };
+  return labels[location] ?? location;
 }
 
-function getMonthLabel(month: Month | string): string {
+function getMonthLabel(month: string): string {
   const labels: Record<string, string> = {
     february: 'Fevereiro',
     march: 'Março',
@@ -38,55 +25,19 @@ function getMonthLabel(month: Month | string): string {
     october: 'Outubro',
     november: 'Novembro',
   };
-  return labels[month as string] ?? String(month);
+  return labels[month] ?? month;
 }
 
 function getStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     draft: 'Rascunho',
-    submitted: 'Enviado',
+    submitted: 'Submetido',
     underReview: 'Em Revisão',
     approved: 'Aprovado',
     analysis: 'Em Análise',
     requiresAdjustment: 'Requer Ajuste',
   };
   return labels[status] ?? status;
-}
-
-function getClassificationLabel(classification: string): string {
-  const labels: Record<string, string> = {
-    goalLinked: 'Vinculada à Meta',
-    routine: 'Rotina',
-    extra: 'Extra',
-  };
-  return labels[classification] ?? classification;
-}
-
-function getActivityStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    notStarted: 'Não Iniciada',
-    submitted: 'Enviada',
-    completed: 'Concluída',
-    rescheduled: 'Reagendada',
-    cancelled: 'Cancelada',
-  };
-  return labels[status] ?? status;
-}
-
-function hoursDisplay(activity: Activity): string {
-  if (activity.hoursNotApplicable) {
-    return 'Não se aplica';
-  }
-  if (activity.dedicatedHours !== undefined && activity.dedicatedHours !== null) {
-    return String(activity.dedicatedHours);
-  }
-  return '-';
-}
-
-function formatDate(timestamp: bigint | number): string {
-  const ms = typeof timestamp === 'bigint' ? Number(timestamp) / 1_000_000 : timestamp;
-  const date = new Date(ms);
-  return date.toLocaleDateString('pt-BR');
 }
 
 function escapeCsv(value: string | number | boolean | null | undefined): string {
@@ -98,123 +49,75 @@ function escapeCsv(value: string | number | boolean | null | undefined): string 
   return str;
 }
 
-export function generateConsolidatedCsv(
-  reports: Report[],
-  activitiesByReport: Map<string, Activity[]>
-): void {
+export function generateConsolidatedCsv(reports: Report[], activities: Activity[]): void {
+  const activitiesByReport = new Map<string, Activity[]>();
+  for (const activity of activities) {
+    const existing = activitiesByReport.get(activity.reportId) ?? [];
+    activitiesByReport.set(activity.reportId, [...existing, activity]);
+  }
+
   const headers = [
     'Protocolo',
-    'Profissional',
-    'Função',
-    'Equipe/Museu',
-    'Mês',
+    'Mês de Referência',
     'Ano',
+    'Nome do Profissional',
+    'Função/Cargo',
+    'Museu/Equipe Principal',
+    'Resumo Executivo',
+    'Pontos Positivos',
+    'Dificuldades',
+    'Sugestões',
+    'Oportunidade Identificada',
+    'Categoria da Oportunidade',
+    'Impacto Esperado',
     'Status',
-    'Atividade',
-    'Data Atividade',
-    'Equipe Atividade',
-    'Tipo de Ação',
-    'Classificação',
-    'Status Atividade',
-    'Horas Dedicadas',
-    'Público Total',
-    'Crianças',
-    'Jovens',
-    'Adultos',
-    'Idosos',
-    'PCD',
-    'Descrição Executada',
-    'Resultados Alcançados',
-    'Avaliação Qualitativa',
+    'Total de Atividades',
+    'Total de Horas',
+    'Total de Público',
   ];
 
-  const rows: string[][] = [headers];
+  let csvContent = headers.map(escapeCsv).join(',') + '\n';
 
-  for (const report of reports) {
-    const activities = activitiesByReport.get(report.id) ?? [];
-
-    if (activities.length === 0) {
-      rows.push([
-        report.protocolNumber,
-        report.professionalName,
-        report.role,
-        getMuseumLocationLabel(report.mainMuseum),
-        getMonthLabel(report.referenceMonth),
-        String(report.year),
-        getStatusLabel(report.status as string),
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-      ]);
-    } else {
-      for (const activity of activities) {
-        rows.push([
-          report.protocolNumber,
-          report.professionalName,
-          report.role,
-          getMuseumLocationLabel(report.mainMuseum),
-          getMonthLabel(report.referenceMonth),
-          String(report.year),
-          getStatusLabel(report.status as string),
-          activity.activityName,
-          formatDate(activity.date),
-          getMuseumLocationLabel(activity.museum),
-          activity.actionType,
-          getClassificationLabel(activity.classification as string),
-          getActivityStatusLabel(activity.status as string),
-          hoursDisplay(activity),
-          String(activity.totalAudience),
-          String(activity.children),
-          String(activity.youth),
-          String(activity.adults),
-          String(activity.elderly),
-          String(activity.pcd),
-          activity.executedDescription,
-          activity.achievedResults,
-          activity.qualitativeAssessment,
-        ]);
-      }
-    }
-  }
-
-  // Add TOTAL row
-  let totalAudience = 0;
-  let totalChildren = 0;
-  let totalYouth = 0;
-  let totalAdults = 0;
-  let totalElderly = 0;
-  let totalPcd = 0;
+  let totalActivities = 0;
   let totalHours = 0;
+  let totalAudience = 0;
 
   for (const report of reports) {
-    const activities = activitiesByReport.get(report.id) ?? [];
-    for (const activity of activities) {
-      totalAudience += Number(activity.totalAudience);
-      totalChildren += Number(activity.children);
-      totalYouth += Number(activity.youth);
-      totalAdults += Number(activity.adults);
-      totalElderly += Number(activity.elderly);
-      totalPcd += Number(activity.pcd);
-      if (!activity.hoursNotApplicable && activity.dedicatedHours !== undefined && activity.dedicatedHours !== null) {
-        totalHours += Number(activity.dedicatedHours);
-      }
-    }
+    const reportActivities = activitiesByReport.get(report.id) ?? [];
+    const hours = reportActivities.reduce((sum, a) => {
+      if (a.hoursNotApplicable || a.dedicatedHours == null) return sum;
+      return sum + Number(a.dedicatedHours);
+    }, 0);
+    const audience = reportActivities.reduce((sum, a) => sum + Number(a.totalAudience), 0);
+
+    totalActivities += reportActivities.length;
+    totalHours += hours;
+    totalAudience += audience;
+
+    const row = [
+      report.protocolNumber,
+      getMonthLabel(report.referenceMonth),
+      report.year,
+      report.professionalName,
+      report.funcaoCargo,
+      getMuseumLocationLabel(report.mainMuseum),
+      report.executiveSummary,
+      report.positivePoints,
+      report.difficulties,
+      report.suggestions,
+      report.identifiedOpportunity,
+      report.opportunityCategory,
+      report.expectedImpact ?? '',
+      getStatusLabel(report.status),
+      reportActivities.length,
+      hours,
+      audience,
+    ];
+    csvContent += row.map(escapeCsv).join(',') + '\n';
   }
 
-  rows.push([
+  // TOTAL row
+  const totalRow = [
     'TOTAL',
     '',
     '',
@@ -228,25 +131,18 @@ export function generateConsolidatedCsv(
     '',
     '',
     '',
-    String(totalHours),
-    String(totalAudience),
-    String(totalChildren),
-    String(totalYouth),
-    String(totalAdults),
-    String(totalElderly),
-    String(totalPcd),
     '',
-    '',
-    '',
-  ]);
+    totalActivities,
+    totalHours,
+    totalAudience,
+  ];
+  csvContent += totalRow.map(escapeCsv).join(',') + '\n';
 
-  const csvContent = rows.map((row) => row.map(escapeCsv).join(',')).join('\n');
-  const BOM = '\uFEFF';
-  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `relatorio-consolidado-${new Date().toISOString().split('T')[0]}.csv`;
+  link.download = `consolidado_${new Date().toISOString().split('T')[0]}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

@@ -1,53 +1,30 @@
-import { useState } from 'react';
+import React from 'react';
+import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FileSpreadsheet, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { generateExcelExport } from '../utils/excelGenerator';
-import { useAllReports, useAllActivities, useGetCallerUserProfile } from '../hooks/useQueries';
-import { AppUserRole, Activity } from '../backend';
+import { AppUserRole } from '../backend';
+import { useAllReports, useAllActivities } from '../hooks/useQueries';
+import { generateConsolidatedExcel } from '../utils/excelGenerator';
 
-export default function ExportConsolidatedExcelButton() {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const { data: userProfile } = useGetCallerUserProfile();
-  const { data: reports } = useAllReports();
-  const { data: activities } = useAllActivities();
+interface ExportConsolidatedExcelButtonProps {
+  userRole?: AppUserRole;
+}
 
-  const isAdmin = userProfile?.appRole === AppUserRole.administration;
-  if (!isAdmin) return null;
+export default function ExportConsolidatedExcelButton({ userRole }: ExportConsolidatedExcelButtonProps) {
+  const { data: reports = [] } = useAllReports();
+  const { data: activities = [] } = useAllActivities();
 
-  const handleExport = async () => {
-    if (!reports || !activities) {
-      toast.error('Dados ainda carregando. Tente novamente.');
-      return;
-    }
-    setIsGenerating(true);
-    try {
-      // Build activitiesByReport map
-      const activitiesByReport = new Map<string, Activity[]>();
-      reports.forEach(r => activitiesByReport.set(r.id, []));
-      activities.forEach(a => {
-        const existing = activitiesByReport.get(a.reportId) ?? [];
-        existing.push(a);
-        activitiesByReport.set(a.reportId, existing);
-      });
+  if (userRole !== 'administration' && userRole !== 'coordination' && userRole !== 'coordinator') {
+    return null;
+  }
 
-      generateExcelExport(reports, activitiesByReport);
-      toast.success('Arquivo CSV gerado com sucesso! Abra no Excel.');
-    } catch {
-      toast.error('Erro ao gerar arquivo. Tente novamente.');
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleExport = () => {
+    generateConsolidatedExcel(reports, activities);
   };
 
   return (
-    <Button onClick={handleExport} disabled={isGenerating} className="gap-2">
-      {isGenerating ? (
-        <Loader2 className="w-4 h-4 animate-spin" />
-      ) : (
-        <FileSpreadsheet className="w-4 h-4" />
-      )}
-      Exportar Consolidado (CSV/Excel)
+    <Button variant="outline" size="sm" onClick={handleExport} className="flex items-center gap-2">
+      <Download className="w-4 h-4" />
+      Exportar Excel Consolidado
     </Button>
   );
 }

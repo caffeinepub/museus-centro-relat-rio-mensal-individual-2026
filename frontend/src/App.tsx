@@ -21,12 +21,15 @@ import UserManagementPage from './pages/UserManagementPage';
 import ConsolidatedMuseumPage from './pages/ConsolidatedMuseumPage';
 import FileManagementPage from './pages/FileManagementPage';
 import { Loader2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Toaster } from '@/components/ui/sonner';
 
 // ── Auth Guard Layout ──────────────────────────────────────────────────────
 
 function AppLayout() {
   const { identity, isInitializing } = useInternetIdentity();
   const isAuthenticated = !!identity;
+  const queryClient = useQueryClient();
 
   const {
     data: userProfile,
@@ -61,7 +64,7 @@ function AppLayout() {
   if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center space-y-6 max-w-md px-6">
+        <div className="bg-card border border-border rounded-2xl shadow-lg p-8 text-center space-y-6 max-w-md w-full mx-4">
           <img
             src="/assets/generated/museus-centro-logo.dim_256x256.png"
             alt="Museus Centro"
@@ -80,7 +83,13 @@ function AppLayout() {
   }
 
   if (showProfileSetup) {
-    return <ProfileSetupModal />;
+    return (
+      <ProfileSetupModal
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
+        }}
+      />
+    );
   }
 
   if (showPendingApproval) {
@@ -90,7 +99,7 @@ function AppLayout() {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto bg-background">
         <Outlet />
       </main>
     </div>
@@ -105,7 +114,7 @@ function LoginButton() {
     <button
       onClick={() => login()}
       disabled={isLoggingIn}
-      className="px-8 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
+      className="px-8 py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2 mx-auto"
     >
       {isLoggingIn && <Loader2 className="h-4 w-4 animate-spin" />}
       {isLoggingIn ? 'A entrar...' : 'Entrar'}
@@ -214,5 +223,10 @@ declare module '@tanstack/react-router' {
 }
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <RouterProvider router={router} />
+      <Toaster position="top-right" richColors />
+    </>
+  );
 }

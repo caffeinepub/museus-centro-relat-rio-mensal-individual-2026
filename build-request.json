@@ -1,162 +1,55 @@
 {
   "kind": "build_request",
-  "title": "Add Report Editing Area, File Management Tab, File-Report Linking, and Fix Dashboard",
+  "title": "Downgrade all 'General Coordinator' permissions to 'Coordinator'",
   "projectName": "Museus Centro Reports",
   "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Implement a backend data model and API for file attachments: store file metadata (id, name, type, size, uploadedAt, uploader, base64 content) in stable storage. Expose CRUD operations: uploadFile, listFiles, deleteFile, getFile.",
+      "text": "In the backend, update all existing user profiles that currently have the role 'generalCoordinator' (coordenador geral) and change their role to 'coordinator' (coordenador). This must affect every user with that role, not just a specific individual.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-4",
-          "msg-6"
+          "msg-1"
         ],
         "quotes": [
-          "aba com gestao de arquivos que subiram",
-          "upload de ficheiros (PDFs, imagens, documentos) com listagem completa"
+          "em https://relatorio-museu-centro-mensal-jja.caffeine.xyz/users de todas as permissoes de coordenador geral para coordenador"
         ]
       },
       "acceptanceCriteria": [
-        "Files can be uploaded and stored as base64 blobs in stable memory",
-        "listFiles returns all uploaded files with metadata",
-        "deleteFile removes the file from storage",
-        "getFile retrieves a single file by ID"
+        "All users previously holding the 'generalCoordinator' role now have the 'coordinator' role in stable storage.",
+        "No user retains the 'generalCoordinator' role after the migration.",
+        "Users with other roles (e.g., 'professional', 'administration') are unaffected.",
+        "The migration is applied via migration.mo so that data persists across upgrades."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Implement a backend API for linking files to reports: store a many-to-many association between file IDs and report IDs. Expose linkFileToReport(fileId, reportId), unlinkFileFromReport(fileId, reportId), and getFilesForReport(reportId) operations.",
-      "target": "backend",
-      "source": {
-        "messageIds": [
-          "msg-4",
-          "msg-6"
-        ],
-        "quotes": [
-          "possibilidade de vincular a relatorios antigos",
-          "Vinculação de arquivos a relatórios: associar arquivos existentes a relatórios antigos e novos"
-        ]
-      },
-      "acceptanceCriteria": [
-        "A file can be linked to one or more reports (including existing/old reports)",
-        "getFilesForReport returns all files associated with a given report ID",
-        "Unlinking removes the association without deleting the file"
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "Add React Query hooks in useQueries.ts for all new file and file-report-link backend operations: useUploadFile, useListFiles, useDeleteFile, useLinkFileToReport, useUnlinkFileFromReport, useFilesForReport.",
+      "text": "On the User Management page (/users), verify that the role display and edit dropdown correctly reflects the updated roles — i.e., no user should appear as 'Coordenador Geral' after the backend migration. If the 'Coordenador Geral' option still appears in the role selection dropdown, remove it or disable it so new users cannot be assigned that role.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-4",
-          "msg-6"
-        ]
-      },
-      "acceptanceCriteria": [
-        "All hooks call the corresponding backend actor methods",
-        "Mutation hooks invalidate relevant queries on success",
-        "Error states are handled gracefully"
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "text": "Create a File Management tab/page accessible from the sidebar (for coordinators and admins). The page must display a list of all uploaded files with columns for name, type, size, upload date, and uploader. Include an upload button that opens a file picker (accepting PDFs, images, and documents), uploads the selected file as base64, and shows a progress/loading state. Each file row must have a delete button with confirmation.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4",
-          "msg-6"
+          "msg-1"
         ],
         "quotes": [
-          "aba com gestao de arquivos que subiram com possibilidade de vincular a relat",
-          "upload de ficheiros (PDFs, imagens, documentos) com listagem completa"
+          "em https://relatorio-museu-centro-mensal-jja.caffeine.xyz/users de todas as permissoes de coordenador geral para coordenador"
         ]
       },
       "acceptanceCriteria": [
-        "The sidebar shows a 'File Management' or 'Arquivos' navigation link",
-        "The page lists all uploaded files in a table or card grid",
-        "Files can be uploaded via a file picker button",
-        "Files can be deleted with a confirmation step",
-        "Empty state is shown when no files exist"
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "text": "Add a file linking section inside the report view/edit page (ReportFormPage or a dedicated report detail view). Display the files currently linked to the report and provide a dialog/modal to browse all uploaded files and link/unlink them to the current report. This must work for both new and existing (old) reports.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4",
-          "msg-6"
-        ],
-        "quotes": [
-          "possibilidade de vincular a relatorios antigos",
-          "Vinculação de arquivos a relatórios: associar arquivos existentes a relatórios antigos e novos"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Each report view/edit page shows a 'Linked Files' section",
-        "A button opens a modal listing all available files with link/unlink toggles",
-        "Currently linked files are highlighted or checked in the modal",
-        "Linking and unlinking updates immediately via mutation hooks",
-        "Works on both newly created and pre-existing reports"
-      ]
-    },
-    {
-      "id": "REQ-6",
-      "text": "Audit and fix all errors in DashboardPage.tsx and its child chart/KPI components. Ensure all data fetching hooks handle loading and error states without crashing. Fix any undefined/null access errors, incorrect query usage, or missing null checks across KPICard, MonthlyEvolutionChart, ActivitiesByMuseumChart, AudienceByProfileChart, PlannedVsAchievedChart, ReportsByMonthChart, ReportsByMuseumChart, and PublicoGeralCard.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-6"
-        ],
-        "quotes": [
-          "o dashboard estava com erro corrija tbm",
-          "Fix dashboard errors and optimize overall functionality"
-        ]
-      },
-      "acceptanceCriteria": [
-        "Dashboard page renders without runtime errors when data is available",
-        "Dashboard renders a proper loading state while data is being fetched",
-        "Dashboard renders a proper empty/error state when backend returns no data or an error",
-        "All chart components handle empty data arrays without crashing",
-        "KPI cards display correct values"
-      ]
-    },
-    {
-      "id": "REQ-7",
-      "text": "Optimize overall application robustness: add null/undefined guards throughout all pages and components, ensure all React Query mutations display toast or inline error messages on failure, and remove any console errors related to missing keys, invalid types, or unhandled promise rejections.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-6"
-        ],
-        "quotes": [
-          "faça hard test e corrija erros otimizando o funcionamento"
-        ]
-      },
-      "acceptanceCriteria": [
-        "No uncaught runtime errors in normal user flows",
-        "Failed mutations show user-facing error feedback",
-        "No React key warnings or prop-type errors in the console",
-        "All list renders use stable unique keys"
+        "The /users page shows no users with 'Coordenador Geral' as their displayed role.",
+        "The role edit dropdown in UserManagementPage does not offer 'Coordenador Geral' as a selectable option.",
+        "All previously 'Coordenador Geral' users now display as 'Coordenador' in the user list."
       ]
     }
   ],
   "constraints": [
-    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui",
-    "All Motoko logic must remain in a single actor in backend/main.mo",
-    "File content must be stored as base64 Text in the backend (no external storage)",
-    "Preserve all existing report, activity, goal, and user management functionality"
+    "Only users with the 'generalCoordinator' role must be changed; all other roles must remain intact.",
+    "Migration must preserve all other user profile fields (name, team, status, etc.)."
   ],
   "nonGoals": [
-    "Real-time file sync or WebSocket notifications",
-    "External cloud storage integration",
-    "File versioning or diff history",
-    "PDF/document preview rendering inside the app"
+    "Adding new roles or modifying the role hierarchy beyond this specific downgrade.",
+    "Changing permissions or access rules for the 'coordinator' role itself.",
+    "Modifying any other page besides /users and the backend migration."
   ],
   "imageRequirements": {
     "required": [],

@@ -1,15 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Add a File Management tab, file-report linking, a report editing area with linked files section, and fix dashboard errors in the Museus Centro Reports application.
+**Goal:** Downgrade all users with the 'General Coordinator' (coordenador geral) role to 'Coordinator' (coordenador) across the backend and user management UI.
 
 **Planned changes:**
-- Add backend data model and CRUD API for file attachments (upload, list, delete, get), storing file metadata and base64 content in stable storage
-- Add backend API for many-to-many file-report linking (link, unlink, get files for report)
-- Add React Query hooks for all new file and file-report-link operations
-- Add a File Management page accessible from the sidebar (coordinators and admins) with a file table (name, type, size, upload date, uploader), upload button with file picker, delete with confirmation, and empty state
-- Add a "Linked Files" section inside the report view/edit page with a modal to browse, link, and unlink files; works for both new and existing reports
-- Fix all runtime errors in DashboardPage and its child chart/KPI components, ensuring proper loading, error, and empty states
-- Add null/undefined guards throughout pages and components, ensure failed mutations show user-facing error feedback, and fix React key/prop-type warnings
+- Run a backend migration that updates every user profile with the `generalCoordinator` role to `coordinator`, leaving all other roles and profile fields untouched.
+- Remove the 'Coordenador Geral' option from the role selection dropdown on the `/users` (User Management) page so it can no longer be assigned to new users.
+- Ensure the user list on `/users` displays previously 'Coordenador Geral' users as 'Coordenador'.
 
-**User-visible outcome:** Users can upload and manage files, link or unlink files to any report (new or existing), and the dashboard displays correctly without errors.
+**User-visible outcome:** On the User Management page, no user appears with the 'Coordenador Geral' role, and the role dropdown no longer offers that option. All affected users are now shown and treated as 'Coordenador'.

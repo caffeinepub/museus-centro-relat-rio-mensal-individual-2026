@@ -10,107 +10,6 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
-export type AccessibilityOption = { 'tactileMaterial' : null } |
-  { 'other' : null } |
-  { 'none' : null } |
-  { 'libras' : null } |
-  { 'audioDescription' : null };
-export interface Activity {
-  'id' : ActivityId,
-  'pcd' : bigint,
-  'files' : Array<Attachment>,
-  'status' : ActivityStatus,
-  'evidences' : Array<EvidenceType>,
-  'activityName' : string,
-  'executedDescription' : string,
-  'plannedIndicator' : [] | [string],
-  'hoursNotApplicable' : boolean,
-  'partnerName' : [] | [string],
-  'partnerType' : [] | [string],
-  'cancellationReason' : [] | [string],
-  'museum' : MuseumLocation,
-  'date' : Date,
-  'objective' : [] | [string],
-  'goalStatus' : [] | [GoalStatus],
-  'achievedResults' : string,
-  'actionType' : string,
-  'hadPartnership' : boolean,
-  'audienceRange' : AudienceRange,
-  'elderly' : bigint,
-  'children' : bigint,
-  'dedicatedHours' : [] | [bigint],
-  'achievedResult' : [] | [bigint],
-  'linkedActivityId' : [] | [ActivityId],
-  'totalAudience' : bigint,
-  'productRealised' : ProductRealised,
-  'partnershipsInvolved' : [] | [string],
-  'adults' : bigint,
-  'quantity' : [] | [Quantity],
-  'attachmentsPrefix' : string,
-  'technicalJustification' : [] | [string],
-  'goalDescription' : [] | [string],
-  'reportId' : ReportId,
-  'goalNumber' : [] | [bigint],
-  'qualitativeAssessment' : string,
-  'quantitativeGoal' : [] | [bigint],
-  'youth' : bigint,
-  'contributionPercent' : [] | [number],
-  'accessibilityOptions' : Array<AccessibilityOption>,
-  'classification' : Classification,
-}
-export interface ActivityCreate {
-  'id' : ActivityId,
-  'pcd' : bigint,
-  'files' : Array<Attachment>,
-  'status' : ActivityStatus,
-  'evidences' : Array<EvidenceType>,
-  'activityName' : string,
-  'executedDescription' : string,
-  'plannedIndicator' : [] | [string],
-  'hoursNotApplicable' : boolean,
-  'partnerName' : [] | [string],
-  'partnerType' : [] | [string],
-  'cancellationReason' : [] | [string],
-  'museum' : MuseumLocation,
-  'date' : Date,
-  'objective' : [] | [string],
-  'goalStatus' : [] | [GoalStatus],
-  'achievedResults' : string,
-  'actionType' : string,
-  'hadPartnership' : boolean,
-  'audienceRange' : AudienceRange,
-  'elderly' : bigint,
-  'children' : bigint,
-  'dedicatedHours' : [] | [bigint],
-  'achievedResult' : [] | [bigint],
-  'linkedActivityId' : [] | [ActivityId],
-  'totalAudience' : bigint,
-  'productRealised' : ProductRealised,
-  'partnershipsInvolved' : [] | [string],
-  'adults' : bigint,
-  'quantity' : [] | [Quantity],
-  'attachmentsPrefix' : string,
-  'technicalJustification' : [] | [string],
-  'goalDescription' : [] | [string],
-  'reportId' : ReportId,
-  'goalNumber' : [] | [bigint],
-  'qualitativeAssessment' : string,
-  'quantitativeGoal' : [] | [bigint],
-  'youth' : bigint,
-  'contributionPercent' : [] | [number],
-  'accessibilityOptions' : Array<AccessibilityOption>,
-  'classification' : Classification,
-}
-export type ActivityId = string;
-export interface ActivitySearchResult {
-  'id' : ActivityId,
-  'activityName' : string,
-}
-export type ActivityStatus = { 'notStarted' : null } |
-  { 'cancelled' : null } |
-  { 'submitted' : null } |
-  { 'rescheduled' : null } |
-  { 'completed' : null };
 export type AppUserRole = { 'coordination' : null } |
   { 'administration' : null } |
   { 'professional' : null } |
@@ -118,207 +17,35 @@ export type AppUserRole = { 'coordination' : null } |
 export type ApprovalStatus = { 'pending' : null } |
   { 'approved' : null } |
   { 'rejected' : null };
-export type Attachment = Uint8Array;
-export interface AudienceBreakdown {
-  'pcd' : bigint,
-  'elderly' : bigint,
-  'children' : bigint,
-  'adults' : bigint,
-  'youth' : bigint,
-}
-export type AudienceQueryType = { 'customRange' : DateRange } |
-  { 'cumulativeTotal' : null } |
-  { 'specificMonth' : { 'month' : Month, 'year' : Year } };
-export type AudienceRange = { 'fiftyOneToHundred' : null } |
-  { 'twoHundredOneToFiveHundred' : null } |
-  { 'twentyOneToFifty' : null } |
-  { 'naoSeAplica' : null } |
-  { 'zeroToTwenty' : null } |
-  { 'hundredOneToTwoHundred' : null } |
-  { 'aboveFiveHundred' : null };
-export type Classification = { 'goalLinked' : null } |
-  { 'extra' : null } |
-  { 'routine' : null };
-export interface CoordinationDashboard {
-  'totalDedicatedHours' : bigint,
-  'activitiesWithAccessibility' : bigint,
-  'extraActivitiesCount' : bigint,
-  'goalsAchieved' : bigint,
-  'partnershipsCount' : bigint,
-  'reportStatusBreakdown' : StatusBreakdown,
-  'goalsInProgress' : bigint,
-  'reportsByMuseum' : Array<[string, bigint]>,
-  'audienceByProfile' : AudienceBreakdown,
-  'plannedActivitiesCount' : bigint,
-  'totalLinkedGoals' : bigint,
-  'reportsByMonth' : Array<[string, bigint]>,
-  'totalAudience' : bigint,
-  'monthlyEvolution' : Array<[string, bigint]>,
-  'totalActivitiesPerMuseum' : Array<[string, bigint]>,
-}
-export interface DashboardFilter {
-  'month' : [] | [string],
-  'museum' : [] | [MuseumLocation],
-  'professionalName' : [] | [string],
-}
-export type Date = bigint;
-export interface DateRange {
-  'startYear' : Year,
-  'endMonth' : Month,
-  'startMonth' : Month,
-  'endYear' : Year,
-}
-export type EvidenceType = { 'report' : null } |
-  { 'other' : null } |
-  { 'graphicMaterial' : null } |
-  { 'attendanceList' : null } |
-  { 'photos' : null };
-export type ExternalBlob = Uint8Array;
-export interface FileAttachment {
-  'id' : string,
-  'name' : string,
-  'size' : bigint,
-  'mimeType' : string,
-  'base64Content' : string,
-  'uploader' : Principal,
-  'uploadedAt' : Time,
-}
 export interface FullUserProfile {
   'principal' : Principal,
   'appRole' : AppUserRole,
-  'museum' : MuseumLocation,
   'name' : string,
+  'team' : TeamLocation,
   'approvalStatus' : ApprovalStatus,
 }
-export interface Goal {
-  'id' : bigint,
-  'active' : boolean,
-  'name' : string,
-  'description' : [] | [string],
-}
-export type GoalStatus = { 'achieved' : null } |
-  { 'exceeded' : null } |
-  { 'partiallyCumplied' : null } |
-  { 'inProgress' : null };
-export type Month = { 'may' : null } |
-  { 'march' : null } |
-  { 'april' : null } |
-  { 'november' : null } |
-  { 'july' : null } |
-  { 'june' : null } |
-  { 'february' : null } |
-  { 'september' : null } |
-  { 'august' : null } |
-  { 'october' : null };
-export type MuseumLocation = { 'comunicacao' : null } |
-  { 'coordenacao' : null } |
-  { 'equipePrincipal' : null } |
-  { 'producaoGeral' : null } |
-  { 'programacao' : null } |
-  { 'administracao' : null };
-export type ProductRealised = { 'outro' : null } |
-  { 'pesquisaConcluida' : null } |
-  { 'conteudoDigitalPublicado' : null } |
-  { 'eventoExecutado' : null } |
-  { 'planoDeAcaoElaborado' : null } |
-  { 'naoSeAplica' : null } |
-  { 'oficinaRealizada' : null } |
-  { 'materialGraficoProduzido' : null } |
-  { 'exposicaoMontada' : null } |
-  { 'relatorioEntregue' : null } |
-  { 'reuniaoRegistrada' : null };
 export interface ProfessionalOption { 'principal' : Principal, 'name' : string }
-export type Quantity = { 'one' : null } |
-  { 'six' : null } |
-  { 'ten' : null } |
-  { 'two' : null } |
-  { 'three' : null } |
-  { 'five' : null } |
-  { 'four' : null } |
-  { 'nine' : null } |
-  { 'eight' : null } |
-  { 'seven' : null } |
-  { 'maisDeDez' : null };
-export interface Report {
-  'id' : ReportId,
-  'difficulties' : string,
-  'status' : Status,
-  'signature' : [] | [string],
-  'coordinatorSignature' : [] | [ExternalBlob],
-  'expectedImpact' : string,
-  'suggestions' : string,
-  'authorId' : Principal,
-  'otherMuseum' : [] | [string],
-  'identifiedOpportunity' : string,
-  'professionalName' : string,
-  'protocolNumber' : string,
-  'approvedAt' : [] | [Time],
-  'role' : string,
-  'year' : Year,
-  'workedAtOtherMuseum' : boolean,
-  'submittedAt' : [] | [Time],
-  'positivePoints' : string,
-  'generalExecutiveSummary' : [] | [string],
-  'mainMuseum' : MuseumLocation,
-  'executiveSummary' : string,
-  'coordinatorComments' : [] | [string],
-  'institutionalObservations' : [] | [string],
-  'referenceMonth' : Month,
-  'opportunityCategory' : string,
-  'consolidatedGoals' : [] | [string],
-  'sendDate' : [] | [Time],
-}
-export interface ReportActivityExport {
-  'report' : Report,
-  'activities' : Array<Activity>,
-}
-export interface ReportCreate {
-  'difficulties' : string,
-  'status' : Status,
-  'expectedImpact' : string,
-  'suggestions' : string,
-  'authorId' : Principal,
-  'otherMuseum' : [] | [string],
-  'identifiedOpportunity' : string,
-  'professionalName' : string,
-  'role' : string,
-  'year' : Year,
-  'workedAtOtherMuseum' : boolean,
-  'positivePoints' : string,
-  'mainMuseum' : MuseumLocation,
-  'executiveSummary' : string,
-  'referenceMonth' : Month,
-  'opportunityCategory' : string,
-}
 export type ReportId = string;
-export type Status = { 'submitted' : null } |
-  { 'underReview' : null } |
-  { 'requiresAdjustment' : null } |
-  { 'approved' : null } |
-  { 'analysis' : null } |
-  { 'draft' : null };
-export interface StatusBreakdown {
-  'submitted' : bigint,
-  'underReview' : bigint,
-  'requiresAdjustment' : bigint,
-  'approved' : bigint,
-  'analysis' : bigint,
-  'draft' : bigint,
-}
-export type Time = bigint;
+export type ReviewAction = { 'returnReport' : null } |
+  { 'approve' : null };
+export type TeamLocation = { 'mis' : null } |
+  { 'comunicacao' : null } |
+  { 'mhab' : null } |
+  { 'mumo' : null } |
+  { 'empty' : null } |
+  { 'administracao' : null };
 export interface UserApprovalInfo {
   'status' : ApprovalStatus,
   'principal' : Principal,
 }
 export interface UserProfile {
   'appRole' : AppUserRole,
-  'museum' : MuseumLocation,
   'name' : string,
+  'team' : TeamLocation,
 }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
-export type Year = bigint;
 export interface _CaffeineStorageCreateCertificateResult {
   'method' : string,
   'blob_hash' : string,
@@ -347,174 +74,27 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
-  'addGoal' : ActorMethod<[string, [] | [string]], undefined>,
-  /**
-   * / Approve a user.
-   * / Only the exclusive #coordination role or admin may approve users.
-   */
   'approveUser' : ActorMethod<[Principal], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'createActivity' : ActorMethod<[ActivityCreate], ActivityId>,
-  'createReport' : ActorMethod<[ReportCreate], ReportId>,
-  /**
-   * / Delete an activity.
-   * / Coordinators and admins can delete any activity.
-   * / Professionals can only delete activities belonging to their own reports
-   * / when those reports are in draft or requiresAdjustment status.
-   */
-  'deleteActivity' : ActorMethod<[ActivityId], undefined>,
-  /**
-   * / Delete a file and remove its report links.
-   * / Only the uploader, coordinators, or admins can delete a file.
-   */
-  'deleteFile' : ActorMethod<[string], undefined>,
-  /**
-   * / Delete a report.
-   * / Coordinators and admins can delete any report.
-   * / Professionals can only delete their own reports in draft or
-   * / requiresAdjustment status.
-   */
-  'deleteReport' : ActorMethod<[ReportId], undefined>,
-  /**
-   * / Delete any user profile.
-   * / Callable by exclusive coordinator, or admin.
-   */
   'deleteUserProfile' : ActorMethod<[Principal], undefined>,
-  'getActivitiesForReport' : ActorMethod<[ReportId], Array<Activity>>,
-  'getActivity' : ActorMethod<[ActivityId], Activity>,
-  'getAllActivities' : ActorMethod<[], Array<Activity>>,
-  'getAllReports' : ActorMethod<[], Array<Report>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
-  'getCoordinationDashboardWithFilter' : ActorMethod<
-    [DashboardFilter],
-    CoordinationDashboard
-  >,
-  /**
-   * / Get a specific file by ID.
-   * / Only the uploader, coordinators, or admins can retrieve a file.
-   */
-  'getFile' : ActorMethod<[string], [] | [FileAttachment]>,
-  /**
-   * / Get all files linked to a report.
-   * / The caller must be able to read the report (own it or be a coordinator/admin).
-   */
-  'getFilesForReport' : ActorMethod<[ReportId], Array<FileAttachment>>,
-  'getReport' : ActorMethod<[ReportId], Report>,
-  /**
-   * / Export a report with all its activities.
-   * / Professionals can only export their own reports.
-   * / Coordinators and admins can export any report.
-   */
-  'getReportWithActivities' : ActorMethod<
-    [ReportId],
-    [] | [ReportActivityExport]
-  >,
-  'getReportsForUser' : ActorMethod<[Principal], Array<Report>>,
-  'getTotalGeneralAudience' : ActorMethod<[AudienceQueryType], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
-  /**
-   * / Returns true for admins, coordinators, and explicitly approved users.
-   */
   'isCallerApproved' : ActorMethod<[], boolean>,
-  /**
-   * / Link a file to a report.
-   * / The caller must be able to write to the report (own it or be a coordinator/admin),
-   * / and must own the file (or be a coordinator/admin).
-   */
-  'linkFileToReport' : ActorMethod<[string, ReportId], undefined>,
-  'listAllActivities' : ActorMethod<[], Array<Activity>>,
   'listAllUserProfiles' : ActorMethod<[], Array<FullUserProfile>>,
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
-  /**
-   * / List files.
-   * / Coordinators and admins see all files.
-   * / Regular users only see their own files.
-   */
-  'listFiles' : ActorMethod<[], Array<FileAttachment>>,
-  'listGoals' : ActorMethod<[], Array<Goal>>,
-  /**
-   * / Returns all user profiles that are fully registered and approved,
-   * / including the corresponding principal.
-   */
   'listRegisteredProfessionals' : ActorMethod<[], Array<ProfessionalOption>>,
   'rejectUser' : ActorMethod<[Principal], undefined>,
   'requestApproval' : ActorMethod<[], undefined>,
-  /**
-   * / Review (change status of) a report.
-   * / The #coordination role (Daniel Perini Santos) is explicitly required for
-   * / approving users and coordinator-level users. All other coordinators may
-   * / still move reports to #underReview or #requiresAdjustment.
-   */
   'reviewReport' : ActorMethod<
-    [ReportId, Status, [] | [string], [] | [ExternalBlob]],
+    [ReportId, ReviewAction, [] | [string]],
     undefined
   >,
-  /**
-   * / Save the caller's own profile.
-   * / The #coordination role is only permitted when the
-   * / profile name is exactly COORDINATION_RESERVED_NAME; otherwise it is
-   * / downgraded to #coordinator.
-   */
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
-  /**
-   * / Search activities by name.
-   * / Requires at least #user permission to prevent anonymous data harvesting.
-   */
-  'searchActivitiesByName' : ActorMethod<[string], Array<ActivitySearchResult>>,
-  /**
-   * / Set approval status for a user.
-   * / Only admins can call this low-level function.
-   */
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
-  'submitReport' : ActorMethod<[ReportId], undefined>,
-  'toggleGoalActive' : ActorMethod<[bigint], undefined>,
-  /**
-   * / Unlink a file from a report.
-   * / The caller must be able to write to the report (own it or be a coordinator/admin).
-   */
-  'unlinkFileFromReport' : ActorMethod<[string, ReportId], undefined>,
-  /**
-   * / Update an activity.
-   * / Coordinators and admins can edit any activity.
-   * / Professionals can only edit activities belonging to their own reports
-   * / when those reports are in draft or requiresAdjustment status.
-   */
-  'updateActivity' : ActorMethod<[ActivityId, Activity], undefined>,
-  'updateCoordinationFields' : ActorMethod<
-    [ReportId, string, string, string],
-    undefined
-  >,
-  /**
-   * / Update a report.
-   * / Coordinators and admins can edit any report.
-   * / Professionals can only edit their own reports when in draft or
-   * / requiresAdjustment status.
-   */
-  'updateReport' : ActorMethod<[ReportId, Report], undefined>,
-  /**
-   * / Update any user's profile fields (name, role, museum).
-   * / Callable by coordinator, or admin.
-   * / The #coordination role is only permitted when the
-   * / target profile name is exactly COORDINATION_RESERVED_NAME; otherwise it
-   * / is downgraded to #coordinator.
-   */
   'updateUserProfile' : ActorMethod<[Principal, UserProfile], undefined>,
-  /**
-   * / Update only the role of a user.
-   * / Callable by coordinator, or admin.
-   * / The #coordination role is only permitted when the
-   * / target user's registered name is exactly COORDINATION_RESERVED_NAME;
-   * / otherwise it is downgraded to #coordinator.
-   */
   'updateUserRole' : ActorMethod<[Principal, AppUserRole], undefined>,
-  /**
-   * / Upload a new file.
-   * / The uploader field must match the caller to prevent impersonation.
-   */
-  'uploadFile' : ActorMethod<[FileAttachment], string>,
-  'uploadSignature' : ActorMethod<[ReportId, string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

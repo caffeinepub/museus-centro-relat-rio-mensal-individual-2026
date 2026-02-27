@@ -1,87 +1,76 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { getMonthLabel } from '../../utils/labels';
-import { TrendingUp } from 'lucide-react';
 
-interface MonthlyEvolutionChartProps {
-  data: Array<[string, bigint]> | undefined | null;
+interface Props {
+  data: [string, number][];
 }
 
 const MONTH_ORDER = [
-  'february', 'march', 'april', 'may', 'june', 'july',
-  'august', 'september', 'october', 'november',
+  'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november',
 ];
 
-export default function MonthlyEvolutionChart({ data }: MonthlyEvolutionChartProps) {
-  if (!Array.isArray(data) || data.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Evolução Mensal do Público
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-            Sem dados disponíveis
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+const MONTH_LABELS: Record<string, string> = {
+  february: 'Fev', march: 'Mar', april: 'Abr', may: 'Mai',
+  june: 'Jun', july: 'Jul', august: 'Ago', september: 'Set',
+  october: 'Out', november: 'Nov',
+};
 
-  const chartData = [...data]
-    .sort(([a], [b]) => {
-      const ai = MONTH_ORDER.indexOf(a.split('-')[1] ?? a);
-      const bi = MONTH_ORDER.indexOf(b.split('-')[1] ?? b);
-      if (ai !== -1 && bi !== -1) return ai - bi;
-      return a.localeCompare(b);
-    })
-    .map(([month, count]) => ({
-      month: getMonthLabel(month) ?? month,
-      público: Number(count ?? 0),
-    }));
+export default function MonthlyEvolutionChart({ data }: Props) {
+  const sorted = [...data].sort(
+    (a, b) => MONTH_ORDER.indexOf(a[0]) - MONTH_ORDER.indexOf(b[0])
+  );
+
+  const chartData = sorted.map(([month, count]) => ({
+    name: MONTH_LABELS[month] ?? month,
+    count,
+  }));
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-card border border-border rounded-md px-3 py-2 shadow-md">
+          <p className="text-foreground text-sm font-medium">{label}</p>
+          <p className="text-primary text-sm">{payload[0].value} atividades</p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <TrendingUp className="h-4 w-4" />
-          Evolução Mensal do Público
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis
-              dataKey="month"
-              tick={{ fontSize: 11 }}
-              className="text-muted-foreground"
+    <div className="bg-card border border-border rounded-lg p-4">
+      <h3 className="text-foreground font-semibold text-sm mb-4">
+        Evolução Mensal de Atividades
+      </h3>
+      {chartData.length === 0 ? (
+        <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+          Sem dados disponíveis
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+            <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+            <Tooltip content={<CustomTooltip />} />
+            <Line
+              type="monotone"
+              dataKey="count"
+              stroke="var(--primary)"
+              strokeWidth={2}
+              dot={{ fill: 'var(--primary)', r: 4 }}
             />
-            <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '6px',
-                fontSize: '12px',
-              }}
-            />
-            <Bar dataKey="público" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-          </BarChart>
+          </LineChart>
         </ResponsiveContainer>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

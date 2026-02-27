@@ -1,7 +1,8 @@
+import React from 'react';
+import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FileDown } from 'lucide-react';
+import type { Report, Activity } from '../types';
 import { generateReportPDF } from '../utils/pdfGenerator';
-import type { Report, Activity } from '../backend';
 
 interface ExportReportPDFButtonProps {
   report: Report;
@@ -14,8 +15,8 @@ export default function ExportReportPDFButton({ report, activities }: ExportRepo
   };
 
   return (
-    <Button variant="outline" onClick={handleExport} className="gap-2">
-      <FileDown className="w-4 h-4" />
+    <Button variant="outline" size="sm" onClick={handleExport} className="flex items-center gap-2">
+      <FileText className="w-4 h-4" />
       Exportar PDF
     </Button>
   );

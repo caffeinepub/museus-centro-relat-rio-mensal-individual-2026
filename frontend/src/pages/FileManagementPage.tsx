@@ -1,17 +1,9 @@
-import React, { useRef, useState } from 'react';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useListFiles, useUploadFile, useDeleteFile } from '../hooks/useQueries';
-import { FileAttachment } from '../backend';
+import React, { useState, useRef } from 'react';
+import { toast } from 'sonner';
+import { Upload, Trash2, FileText, Loader2, Search, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,258 +13,186 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Upload, Trash2, FileText, Image, File, Loader2, FolderOpen } from 'lucide-react';
-import { Principal } from '@dfinity/principal';
+import { useListFiles, useUploadFile, useDeleteFile } from '../hooks/useQueries';
 
-function formatFileSize(bytes: bigint): string {
-  const n = Number(bytes);
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(time: bigint): string {
-  const ms = Number(time) / 1_000_000;
-  return new Date(ms).toLocaleDateString('pt-PT', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function getFileIcon(mimeType: string) {
-  if (mimeType.startsWith('image/')) return <Image className="h-4 w-4 text-blue-500" />;
-  if (mimeType === 'application/pdf') return <FileText className="h-4 w-4 text-red-500" />;
-  return <File className="h-4 w-4 text-muted-foreground" />;
-}
-
-function getMimeTypeBadge(mimeType: string): string {
-  if (mimeType.startsWith('image/')) return mimeType.replace('image/', '').toUpperCase();
-  if (mimeType === 'application/pdf') return 'PDF';
-  if (mimeType.includes('word')) return 'DOCX';
-  if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'XLSX';
-  return mimeType.split('/')[1]?.toUpperCase() ?? 'FILE';
+interface FileAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: number | bigint;
+  uploader: any;
+  base64Content: string;
 }
 
 export default function FileManagementPage() {
-  const { identity } = useInternetIdentity();
-  const { data: files = [], isLoading, isError } = useListFiles();
-  const uploadFileMutation = useUploadFile();
-  const deleteFileMutation = useDeleteFile();
+  const { data: files = [], isLoading } = useListFiles();
+  const uploadFile = useUploadFile();
+  const deleteFile = useDeleteFile();
+
+  const [search, setSearch] = useState('');
+  const [deletingFile, setDeletingFile] = useState<FileAttachment | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const filtered = (files as FileAttachment[]).filter(f =>
+    f.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !identity) return;
-
-    setIsUploading(true);
-    setUploadProgress(0);
+    if (!file) return;
 
     try {
       const reader = new FileReader();
-      reader.onprogress = (event) => {
-        if (event.lengthComputable) {
-          setUploadProgress(Math.round((event.loaded / event.total) * 50));
-        }
-      };
-      reader.onload = async () => {
-        const base64 = (reader.result as string).split(',')[1] ?? '';
-        const fileId = `file-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-        const fileAttachment: FileAttachment = {
-          id: fileId,
+      reader.onload = async (ev) => {
+        const base64 = (ev.target?.result as string).split(',')[1] ?? '';
+        const fileAttachment = {
+          id: `file_${Date.now()}`,
           name: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          size: BigInt(file.size),
+          mimeType: file.type,
+          size: file.size,
           uploadedAt: BigInt(Date.now()) * BigInt(1_000_000),
-          uploader: identity.getPrincipal() as unknown as import('@dfinity/principal').Principal,
+          uploader: null,
           base64Content: base64,
         };
-
-        setUploadProgress(75);
-        await uploadFileMutation.mutateAsync(fileAttachment);
-        setUploadProgress(100);
-        setTimeout(() => {
-          setIsUploading(false);
-          setUploadProgress(0);
-        }, 500);
-      };
-      reader.onerror = () => {
-        setIsUploading(false);
-        setUploadProgress(0);
+        await uploadFile.mutateAsync(fileAttachment);
+        toast.success(`Arquivo "${file.name}" enviado com sucesso!`);
       };
       reader.readAsDataURL(file);
-    } catch {
-      setIsUploading(false);
-      setUploadProgress(0);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao enviar arquivo';
+      toast.error(message);
     }
 
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleDelete = async (fileId: string) => {
-    await deleteFileMutation.mutateAsync(fileId);
+  const handleDelete = async () => {
+    if (!deletingFile) return;
+    try {
+      await deleteFile.mutateAsync(deletingFile.id);
+      toast.success('Arquivo excluído com sucesso!');
+      setDeletingFile(null);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao excluir arquivo';
+      toast.error(message);
+    }
+  };
+
+  const handleDownload = (file: FileAttachment) => {
+    if (!file.base64Content) return;
+    const link = document.createElement('a');
+    link.href = `data:${file.mimeType};base64,${file.base64Content}`;
+    link.download = file.name;
+    link.click();
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Gestão de Arquivos</h1>
-          <p className="text-muted-foreground mt-1">
-            Faça upload e gerencie arquivos para vincular a relatórios
-          </p>
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <FileText className="w-7 h-7 text-primary" />
+          <h1 className="text-2xl font-bold text-foreground">Gerenciamento de Arquivos</h1>
         </div>
-        <div>
+        <label className="cursor-pointer">
           <input
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx,.txt"
-            onChange={handleFileSelect}
-            disabled={isUploading}
+            onChange={handleUpload}
           />
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading || !identity}
-            className="gap-2"
-          >
-            {isUploading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            {isUploading ? 'A enviar...' : 'Enviar Arquivo'}
+          <Button asChild disabled={uploadFile.isPending}>
+            <span>
+              {uploadFile.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              Enviar Arquivo
+            </span>
           </Button>
-        </div>
+        </label>
       </div>
 
-      {isUploading && (
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>A enviar arquivo...</span>
-                <span>{uploadProgress}%</span>
-              </div>
-              <Progress value={uploadProgress} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Buscar arquivos..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          Nenhum arquivo encontrado.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(file => (
+            <Card key={file.id} className="border border-border">
+              <CardContent className="flex items-center gap-3 p-4">
+                <FileText className="w-8 h-8 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground truncate">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {file.mimeType} · {(file.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {file.base64Content && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownload(file)}
+                    >
+                      <Download className="w-3 h-3" />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-700 border-red-300 hover:bg-red-50"
+                    onClick={() => setDeletingFile(file)}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FolderOpen className="h-5 w-5" />
-            Arquivos ({files.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-3 text-muted-foreground">A carregar arquivos...</span>
-            </div>
-          ) : isError ? (
-            <div className="text-center py-12 text-destructive">
-              <p>Erro ao carregar arquivos. Tente novamente.</p>
-            </div>
-          ) : files.length === 0 ? (
-            <div className="text-center py-12">
-              <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground font-medium">Nenhum arquivo encontrado</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Clique em "Enviar Arquivo" para adicionar o primeiro arquivo
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Tamanho</TableHead>
-                    <TableHead>Data de Upload</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {files.map((file) => (
-                    <TableRow key={file.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getFileIcon(file.mimeType)}
-                          <span className="font-medium truncate max-w-[200px]" title={file.name}>
-                            {file.name}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs">
-                          {getMimeTypeBadge(file.mimeType)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatFileSize(file.size)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(file.uploadedAt)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              disabled={deleteFileMutation.isPending}
-                            >
-                              {deleteFileMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Eliminar arquivo</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem a certeza que deseja eliminar "{file.name}"? Esta ação não pode
-                                ser desfeita e removerá todas as vinculações a relatórios.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(file.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Eliminar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingFile} onOpenChange={open => { if (!open) setDeletingFile(null); }}>
+        <AlertDialogContent className="bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o arquivo <strong>{deletingFile?.name}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteFile.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteFile.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

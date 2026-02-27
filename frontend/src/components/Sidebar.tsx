@@ -1,24 +1,19 @@
-import React from 'react';
 import { useNavigate, useLocation } from '@tanstack/react-router';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useGetCallerUserProfile } from '../hooks/useQueries';
 import { useQueryClient } from '@tanstack/react-query';
-import { AppUserRole } from '../backend';
+import { useGetCallerUserProfile } from '../hooks/useQueries';
 import {
   LayoutDashboard,
   FileText,
-  CheckSquare,
   Users,
-  BarChart3,
-  FolderOpen,
-  LogOut,
-  ChevronRight,
+  CheckSquare,
   Building2,
+  LogOut,
+  FolderOpen,
+  Heart,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { AppUserRole } from '../backend';
+import { getRoleLabel } from '../utils/labels';
 
 interface NavItem {
   label: string;
@@ -27,73 +22,53 @@ interface NavItem {
   roles?: AppUserRole[];
 }
 
-const NAV_ITEMS: NavItem[] = [
+const navItems: NavItem[] = [
   {
     label: 'Dashboard',
     path: '/dashboard',
-    icon: <LayoutDashboard className="h-4 w-4" />,
+    icon: <LayoutDashboard className="w-4 h-4" />,
     roles: [AppUserRole.coordination, AppUserRole.coordinator, AppUserRole.administration],
   },
   {
     label: 'Relatórios',
     path: '/reports',
-    icon: <FileText className="h-4 w-4" />,
-  },
-  {
-    label: 'Arquivos',
-    path: '/files',
-    icon: <FolderOpen className="h-4 w-4" />,
-    roles: [AppUserRole.coordination, AppUserRole.coordinator, AppUserRole.administration],
+    icon: <FileText className="w-4 h-4" />,
   },
   {
     label: 'Aprovações',
     path: '/approvals',
-    icon: <CheckSquare className="h-4 w-4" />,
+    icon: <CheckSquare className="w-4 h-4" />,
     roles: [AppUserRole.coordination, AppUserRole.coordinator, AppUserRole.administration],
   },
   {
     label: 'Consolidado',
     path: '/consolidated',
-    icon: <BarChart3 className="h-4 w-4" />,
+    icon: <Building2 className="w-4 h-4" />,
     roles: [AppUserRole.coordination, AppUserRole.coordinator, AppUserRole.administration],
   },
   {
-    label: 'Utilizadores',
+    label: 'Arquivos',
+    path: '/files',
+    icon: <FolderOpen className="w-4 h-4" />,
+  },
+  {
+    label: 'Usuários',
     path: '/users',
-    icon: <Users className="h-4 w-4" />,
-    roles: [AppUserRole.coordination, AppUserRole.administration],
+    icon: <Users className="w-4 h-4" />,
+    roles: [AppUserRole.coordination, AppUserRole.coordinator, AppUserRole.administration],
   },
 ];
-
-function getRoleLabel(role: AppUserRole): string {
-  switch (role) {
-    case AppUserRole.coordination: return 'Coordenação Geral';
-    case AppUserRole.coordinator: return 'Coordenador';
-    case AppUserRole.administration: return 'Administração';
-    case AppUserRole.professional: return 'Profissional';
-    default: return 'Utilizador';
-  }
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .slice(0, 2)
-    .map((n) => n[0] ?? '')
-    .join('')
-    .toUpperCase();
-}
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { identity, clear } = useInternetIdentity();
-  const { data: userProfile } = useGetCallerUserProfile();
+  const { clear, identity } = useInternetIdentity();
   const queryClient = useQueryClient();
+  const { data: userProfile } = useGetCallerUserProfile();
 
-  const userRole = userProfile?.appRole ?? null;
+  const userRole = userProfile?.appRole;
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
+  const visibleNavItems = navItems.filter((item) => {
     if (!item.roles) return true;
     if (!userRole) return false;
     return item.roles.includes(userRole);
@@ -102,100 +77,97 @@ export default function Sidebar() {
   const handleLogout = async () => {
     await clear();
     queryClient.clear();
+    navigate({ to: '/' });
   };
 
-  const isActive = (path: string) => {
-    if (path === '/dashboard') return location.pathname === '/dashboard' || location.pathname === '/';
-    return location.pathname.startsWith(path);
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .slice(0, 2)
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
   };
 
   return (
-    <aside className="w-64 min-h-screen bg-card border-r border-border flex flex-col">
-      {/* Logo / Brand */}
-      <div className="p-4 flex items-center gap-3 border-b border-border">
-        <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
-          <Building2 className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <div className="min-w-0">
-          <p className="font-bold text-sm text-foreground leading-tight">Museus Centro</p>
-          <p className="text-xs text-muted-foreground truncate">Gestão de Relatórios</p>
+    <aside className="w-64 min-h-screen bg-sidebar flex flex-col border-r border-sidebar-border">
+      {/* Header */}
+      <div className="p-4 border-b border-sidebar-border bg-sidebar">
+        <div className="flex items-center gap-3">
+          <img
+            src="/assets/generated/museus-centro-logo.dim_256x256.png"
+            alt="Museus Centro"
+            className="w-8 h-8 object-contain rounded"
+          />
+          <div>
+            <h1 className="text-sidebar-foreground font-bold text-sm leading-tight">
+              Museus Centro
+            </h1>
+            <p className="text-sidebar-foreground/70 text-xs">Sistema de Relatórios</p>
+          </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1">
-        {visibleNavItems.map((item) => (
-          <button
-            key={item.path}
-            onClick={() => navigate({ to: item.path })}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors text-left',
-              isActive(item.path)
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-          >
-            {item.icon}
-            <span className="flex-1">{item.label}</span>
-            {isActive(item.path) && <ChevronRight className="h-3 w-3 opacity-70" />}
-          </button>
-        ))}
+      <nav className="flex-1 p-3 space-y-1 bg-sidebar">
+        {visibleNavItems.map((item) => {
+          const isActive = location.pathname.startsWith(item.path);
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate({ to: item.path })}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground'
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          );
+        })}
       </nav>
 
-      <Separator />
-
       {/* User Profile */}
-      <div className="p-3">
-        {userProfile ? (
-          <div className="flex items-center gap-3 px-2 py-2 rounded-md">
-            <Avatar className="h-8 w-8 shrink-0">
-              <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+      <div className="p-3 border-t border-sidebar-border bg-sidebar">
+        {userProfile && (
+          <div className="flex items-center gap-3 px-2 py-2 mb-2">
+            <div className="w-8 h-8 rounded-full bg-sidebar-primary flex items-center justify-center shrink-0">
+              <span className="text-sidebar-primary-foreground text-xs font-bold">
                 {getInitials(userProfile.name)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground truncate">{userProfile.name}</p>
-              <p className="text-xs text-muted-foreground truncate">
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sidebar-foreground text-xs font-medium truncate">
+                {userProfile.name}
+              </p>
+              <p className="text-sidebar-foreground/60 text-xs truncate">
                 {getRoleLabel(userProfile.appRole)}
               </p>
             </div>
           </div>
-        ) : (
-          <div className="flex items-center gap-3 px-2 py-2">
-            <Avatar className="h-8 w-8 shrink-0">
-              <AvatarFallback className="text-xs">?</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-muted-foreground truncate">
-                {identity?.getPrincipal().toString().slice(0, 12)}...
-              </p>
-            </div>
-          </div>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleLogout}
-          className="w-full mt-1 gap-2 text-muted-foreground hover:text-foreground justify-start"
-        >
-          <LogOut className="h-4 w-4" />
-          Sair
-        </Button>
-      </div>
 
-      {/* Footer */}
-      <div className="px-4 py-3 border-t border-border">
-        <p className="text-xs text-muted-foreground text-center">
-          © {new Date().getFullYear()} Built with ❤️ using{' '}
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Sair
+        </button>
+
+        {/* Attribution */}
+        <div className="mt-3 pt-3 border-t border-sidebar-border text-center">
           <a
-            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname || 'museus-centro')}`}
+            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-foreground"
+            className="text-sidebar-foreground/40 text-xs hover:text-sidebar-foreground/70 transition-colors flex items-center justify-center gap-1"
           >
-            caffeine.ai
+            Built with <Heart className="w-3 h-3 fill-current text-red-400" /> caffeine.ai
           </a>
-        </p>
+        </div>
       </div>
     </aside>
   );

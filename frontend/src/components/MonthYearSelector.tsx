@@ -1,6 +1,5 @@
 import React from 'react';
-import { Month } from '../backend';
-import { getMonthOptions, getCurrentYear } from '../utils/labels';
+import type { Month } from '../types';
 import {
   Select,
   SelectContent,
@@ -8,15 +7,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { getMonthOptions } from '../utils/labels';
 
 interface MonthYearSelectorProps {
-  selectedMonth: Month;
+  selectedMonth: Month | '';
   selectedYear: number;
-  onMonthChange: (month: Month) => void;
+  onMonthChange: (month: Month | '') => void;
   onYearChange: (year: number) => void;
 }
 
-const YEAR_OPTIONS: number[] = [2024, 2025, 2026, 2027];
+const currentYear = new Date().getFullYear();
+const yearOptions = Array.from(new Set([2024, 2025, 2026, 2027, currentYear])).sort();
 
 export default function MonthYearSelector({
   selectedMonth,
@@ -25,23 +26,17 @@ export default function MonthYearSelector({
   onYearChange,
 }: MonthYearSelectorProps) {
   const monthOptions = getMonthOptions();
-  const currentYear = getCurrentYear();
-
-  // Ensure current year is always in the list
-  const yearOptions = YEAR_OPTIONS.includes(currentYear)
-    ? YEAR_OPTIONS
-    : [...YEAR_OPTIONS, currentYear].sort((a, b) => a - b);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex gap-2">
       <Select
         value={selectedMonth}
-        onValueChange={(val) => onMonthChange(val as Month)}
+        onValueChange={(v) => onMonthChange(v as Month | '')}
       >
-        <SelectTrigger className="w-36 bg-background border-border">
+        <SelectTrigger className="w-40 bg-white">
           <SelectValue placeholder="Mês" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="bg-white">
           {monthOptions.map((opt) => (
             <SelectItem key={opt.value} value={opt.value}>
               {opt.label}
@@ -52,15 +47,15 @@ export default function MonthYearSelector({
 
       <Select
         value={String(selectedYear)}
-        onValueChange={(val) => onYearChange(Number(val))}
+        onValueChange={(v) => onYearChange(Number(v))}
       >
-        <SelectTrigger className="w-24 bg-background border-border">
+        <SelectTrigger className="w-28 bg-white">
           <SelectValue placeholder="Ano" />
         </SelectTrigger>
-        <SelectContent>
-          {yearOptions.map((year) => (
-            <SelectItem key={year} value={String(year)}>
-              {year}
+        <SelectContent className="bg-white">
+          {yearOptions.map((y) => (
+            <SelectItem key={y} value={String(y)}>
+              {y}
             </SelectItem>
           ))}
         </SelectContent>

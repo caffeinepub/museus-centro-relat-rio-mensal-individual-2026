@@ -1,5 +1,3 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   BarChart,
   Bar,
@@ -9,77 +7,50 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Building2 } from 'lucide-react';
 
-interface ReportsByMuseumChartProps {
-  data: Array<[string, bigint]> | undefined | null;
+interface Props {
+  data: [string, number][];
 }
 
-export default function ReportsByMuseumChart({ data }: ReportsByMuseumChartProps) {
-  if (!Array.isArray(data) || data.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            Relatórios por Museu
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-            Sem dados disponíveis
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const chartData = data.map(([museum, count]) => ({
-    museum: museum ? (museum.length > 14 ? museum.slice(0, 14) + '…' : museum) : 'N/A',
-    fullName: museum ?? 'N/A',
-    relatórios: Number(count ?? 0),
+export default function ReportsByMuseumChart({ data }: Props) {
+  const chartData = data.map(([name, count]) => ({
+    name: name.length > 12 ? name.slice(0, 12) + '…' : name,
+    fullName: name,
+    count,
   }));
 
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-card border border-border rounded-md px-3 py-2 shadow-md">
+          <p className="text-foreground text-sm font-medium">{payload[0].payload.fullName}</p>
+          <p className="text-primary text-sm">{payload[0].value} relatórios</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Building2 className="h-4 w-4" />
-          Relatórios por Museu
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="museum" tick={{ fontSize: 10 }} />
-            <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip
-              content={({ active, payload }) => {
-                if (!active || !payload?.length) return null;
-                const item = payload[0]?.payload;
-                return (
-                  <div
-                    style={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px',
-                      padding: '8px 12px',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <p className="font-medium">{item?.fullName ?? ''}</p>
-                    <p className="text-muted-foreground">
-                      Relatórios: {item?.relatórios ?? 0}
-                    </p>
-                  </div>
-                );
-              }}
-            />
-            <Bar dataKey="relatórios" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+    <div className="bg-card border border-border rounded-lg p-4">
+      <h3 className="text-foreground font-semibold text-sm mb-4">
+        Relatórios por Museu
+      </h3>
+      {chartData.length === 0 ? (
+        <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+          Sem dados disponíveis
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+            <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar dataKey="count" fill="var(--chart-4)" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

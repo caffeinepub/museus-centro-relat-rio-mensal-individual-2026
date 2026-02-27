@@ -1,17 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import {
-  useReportsForUser,
-  useDeleteReport,
-  useGetCallerUserProfile,
-  useGetReportWithActivities,
-} from '../hooks/useQueries';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { Report, Status, AppUserRole, Month } from '../backend';
-import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { Plus, Search, FileText, Loader2, Edit, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,375 +16,171 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Plus,
-  FileText,
-  Calendar,
-  Building2,
-  Trash2,
-  Edit2,
-  Activity,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  FileSpreadsheet,
-  Download,
-} from 'lucide-react';
-import { statusLabel, getMuseumLabel, getMonthLabel, getCurrentMonth, getCurrentYear } from '../utils/labels';
+  useGetReportsForUser,
+  useDeleteReport,
+  useActivitiesForReport,
+} from '../hooks/useQueries';
+import { getMuseumLabel, getMonthLabel, getStatusLabel, getStatusColor } from '../utils/labels';
 import ActivitiesList from '../components/ActivitiesList';
-import MonthYearSelector from '../components/MonthYearSelector';
-import { generateReportPDF } from '../utils/pdfGenerator';
-import { generateExcelExport } from '../utils/excelGenerator';
-import { toast } from 'sonner';
+import ExportReportPDFButton from '../components/ExportReportPDFButton';
+import type { Report, Activity } from '../types';
 
-function getStatusBadgeVariant(status: Status): 'default' | 'secondary' | 'outline' | 'destructive' {
-  switch (status) {
-    case Status.approved: return 'default';
-    case Status.submitted: return 'secondary';
-    case Status.underReview: return 'outline';
-    case Status.requiresAdjustment: return 'destructive';
-    default: return 'outline';
-  }
-}
-
-function ReportCard({
+function ReportActivitiesRow({
   report,
-  userRole,
   onEdit,
   onDelete,
-  onAddActivity,
 }: {
   report: Report;
-  userRole?: AppUserRole;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
-  onAddActivity: (id: string) => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
-  const { identity } = useInternetIdentity();
   const [showActivities, setShowActivities] = useState(false);
-
-  const isCoordinatorOrAdmin =
-    userRole === AppUserRole.coordination ||
-    userRole === AppUserRole.coordinator ||
-    userRole === AppUserRole.administration;
-
-  const isOwner = identity?.getPrincipal().toString() === report.authorId.toString();
-
-  const canEdit =
-    isCoordinatorOrAdmin ||
-    (isOwner && (report.status === Status.draft || report.status === Status.requiresAdjustment));
-
-  const canAddActivity =
-    isCoordinatorOrAdmin ||
-    (isOwner && (report.status === Status.draft || report.status === Status.requiresAdjustment));
+  const { data: activities = [] } = useActivitiesForReport(showActivities ? report.id : undefined);
 
   return (
-    <Card className="hover:border-primary/30 transition-colors">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="font-medium text-sm text-foreground">{report.professionalName}</span>
-              <Badge variant={getStatusBadgeVariant(report.status)} className="text-xs">
-                {statusLabel(report.status)}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {getMonthLabel(report.referenceMonth)} / {report.year.toString()}
-              </span>
-              <span className="flex items-center gap-1">
-                <Building2 className="h-3 w-3" />
-                {getMuseumLabel(report.mainMuseum)}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground/60 mt-1">{report.protocolNumber}</p>
-
-            {report.coordinatorComments && (
-              <div className="mt-2 p-2 bg-warning/10 rounded text-xs border border-warning/20">
-                <span className="font-medium">Comentário: </span>
-                {report.coordinatorComments}
-              </div>
-            )}
+    <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between p-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-semibold text-foreground truncate">{report.professionalName}</span>
+            <Badge className={`text-xs shrink-0 ${getStatusColor(report.status)}`}>
+              {getStatusLabel(report.status)}
+            </Badge>
           </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            {canAddActivity && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                title="Adicionar Atividade"
-                onClick={() => onAddActivity(report.id)}
-              >
-                <Activity className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            {canEdit && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => onEdit(report.id)}
-                >
-                  <Edit2 className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-destructive hover:text-destructive"
-                  onClick={() => onDelete(report.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => setShowActivities((v) => !v)}
-              title="Ver atividades"
-            >
-              {showActivities ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            </Button>
+          <div className="text-sm text-muted-foreground flex items-center gap-3">
+            <span>#{report.protocolNumber}</span>
+            <span>{getMonthLabel(report.referenceMonth)} / {Number(report.year)}</span>
+            <span>{getMuseumLabel(report.mainMuseum)}</span>
           </div>
         </div>
-
-        {showActivities && (
-          <div className="mt-3 pt-3 border-t border-border">
-            <ActivitiesList report={report} userRole={userRole} />
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        <div className="flex items-center gap-2 ml-4 shrink-0">
+          <ExportReportPDFButton report={report} activities={activities as Activity[]} />
+          <Button size="sm" variant="ghost" onClick={onEdit}>
+            <Edit className="w-3 h-3" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red-600 hover:text-red-700"
+            onClick={onDelete}
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowActivities(s => !s)}
+          >
+            {showActivities ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </Button>
+        </div>
+      </div>
+      {showActivities && (
+        <div className="border-t border-border p-4 bg-muted/20">
+          <ActivitiesList
+            reportId={report.id}
+            activities={activities as Activity[]}
+            isLoading={false}
+            canEdit={false}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
 export default function ReportsListPage() {
   const navigate = useNavigate();
-  const { identity } = useInternetIdentity();
-  const { data: userProfile } = useGetCallerUserProfile();
+  const { data: reports = [], isLoading } = useGetReportsForUser();
+  const deleteReport = useDeleteReport();
 
-  // Pass principal as string
-  const userId = identity?.getPrincipal().toString();
-  const { data: reports, isLoading } = useReportsForUser(userId);
+  const [search, setSearch] = useState('');
+  const [deletingReport, setDeletingReport] = useState<Report | null>(null);
 
-  const deleteMutation = useDeleteReport();
-  const getReportWithActivitiesMutation = useGetReportWithActivities();
+  const filtered = (reports as Report[]).filter(r =>
+    r.professionalName?.toLowerCase().includes(search.toLowerCase()) ||
+    r.protocolNumber?.toLowerCase().includes(search.toLowerCase())
+  );
 
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [isExportingCsv, setIsExportingCsv] = useState(false);
-
-  const defaultMonth: Month = getCurrentMonth() ?? Month.february;
-  const defaultYear: number = getCurrentYear();
-
-  const [selectedMonth, setSelectedMonth] = useState<Month>(defaultMonth);
-  const [selectedYear, setSelectedYear] = useState<number>(defaultYear);
-
-  const userRole = userProfile?.appRole;
-
-  const handleEdit = (reportId: string) => {
-    navigate({ to: '/reports/$reportId', params: { reportId } });
-  };
-
-  const handleDelete = (reportId: string) => {
-    setDeleteConfirmId(reportId);
-  };
-
-  const handleConfirmDelete = () => {
-    if (deleteConfirmId) {
-      deleteMutation.mutate(deleteConfirmId, {
-        onSuccess: () => setDeleteConfirmId(null),
-      });
-    }
-  };
-
-  const handleAddActivity = (reportId: string) => {
-    navigate({ to: '/reports/$reportId/activities/new', params: { reportId } });
-  };
-
-  const findMatchingReport = (): Report | undefined => {
-    if (!reports) return undefined;
-    return reports.find(
-      (r) =>
-        r.referenceMonth === selectedMonth &&
-        Number(r.year) === selectedYear
-    );
-  };
-
-  const handleExportPdf = async () => {
-    const matchingReport = findMatchingReport();
-    if (!matchingReport) {
-      toast.error(`Nenhum relatório encontrado para ${getMonthLabel(selectedMonth)} / ${selectedYear}`);
-      return;
-    }
-
-    setIsExportingPdf(true);
+  const handleDelete = async () => {
+    if (!deletingReport) return;
     try {
-      const result = await getReportWithActivitiesMutation.mutateAsync(matchingReport.id);
-      if (!result) {
-        toast.error('Não foi possível obter os dados do relatório.');
-        return;
-      }
-      generateReportPDF(result.report, result.activities);
-      toast.success('PDF gerado com sucesso!');
-    } catch {
-      toast.error('Erro ao gerar o PDF. Tente novamente.');
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
-
-  const handleExportCsv = async () => {
-    const matchingReport = findMatchingReport();
-    if (!matchingReport) {
-      toast.error(`Nenhum relatório encontrado para ${getMonthLabel(selectedMonth)} / ${selectedYear}`);
-      return;
-    }
-
-    setIsExportingCsv(true);
-    try {
-      const result = await getReportWithActivitiesMutation.mutateAsync(matchingReport.id);
-      if (!result) {
-        toast.error('Não foi possível obter os dados do relatório.');
-        return;
-      }
-      const activitiesByReport = new Map([[result.report.id, result.activities]]);
-      generateExcelExport([result.report], activitiesByReport);
-      toast.success('CSV exportado com sucesso!');
-    } catch {
-      toast.error('Erro ao exportar o CSV. Tente novamente.');
-    } finally {
-      setIsExportingCsv(false);
+      await deleteReport.mutateAsync(deletingReport.id);
+      toast.success('Relatório excluído com sucesso!');
+      setDeletingReport(null);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao excluir relatório';
+      toast.error(message);
     }
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-border">
-        <div>
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <FileText className="w-7 h-7 text-primary" />
           <h1 className="text-2xl font-bold text-foreground">Meus Relatórios</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Gerencie seus relatórios mensais de atividades
-          </p>
         </div>
-        <Button onClick={() => navigate({ to: '/reports/new' })} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
+        <Button onClick={() => navigate({ to: '/reports/new' })}>
+          <Plus className="w-4 h-4 mr-2" />
           Novo Relatório
         </Button>
       </div>
 
-      {/* Export Section */}
-      <div className="px-4 pt-4 pb-2">
-        <Card className="border-border/60 bg-muted/20">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Download className="h-4 w-4 text-primary" />
-                <span>Exportar Relatório Mensal</span>
-              </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:ml-auto">
-                <MonthYearSelector
-                  selectedMonth={selectedMonth}
-                  selectedYear={selectedYear}
-                  onMonthChange={setSelectedMonth}
-                  onYearChange={setSelectedYear}
-                />
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportPdf}
-                    disabled={isExportingPdf || isExportingCsv}
-                    className="flex items-center gap-1.5"
-                  >
-                    {isExportingPdf ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <FileText className="h-3.5 w-3.5" />
-                    )}
-                    PDF
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportCsv}
-                    disabled={isExportingPdf || isExportingCsv}
-                    className="flex items-center gap-1.5"
-                  >
-                    {isExportingCsv ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <FileSpreadsheet className="h-3.5 w-3.5" />
-                    )}
-                    CSV
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Buscar relatórios..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full rounded-lg" />
-          ))
-        ) : !reports || reports.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground/40 mb-3" />
-            <p className="text-muted-foreground font-medium">Nenhum relatório encontrado</p>
-            <p className="text-muted-foreground/60 text-sm mt-1">
-              Crie seu primeiro relatório para começar
-            </p>
-            <Button
-              onClick={() => navigate({ to: '/reports/new' })}
-              className="mt-4 flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Criar Relatório
-            </Button>
-          </div>
-        ) : (
-          reports.map((report) => (
-            <ReportCard
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          Nenhum relatório encontrado.{' '}
+          <button
+            className="text-primary underline"
+            onClick={() => navigate({ to: '/reports/new' })}
+          >
+            Criar novo relatório
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(report => (
+            <ReportActivitiesRow
               key={report.id}
               report={report}
-              userRole={userRole}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onAddActivity={handleAddActivity}
+              onEdit={() => navigate({ to: `/reports/${report.id}/edit` })}
+              onDelete={() => setDeletingReport(report)}
             />
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => { if (!open) setDeleteConfirmId(null); }}>
-        <AlertDialogContent>
+      <AlertDialog open={!!deletingReport} onOpenChange={open => { if (!open) setDeletingReport(null); }}>
+        <AlertDialogContent className="bg-white">
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Relatório</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir este relatório? Esta ação não pode ser desfeita e todas as
-              atividades associadas também serão removidas.
+              Tem certeza que deseja excluir o relatório de <strong>{deletingReport?.professionalName}</strong>? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmDelete}
+              onClick={handleDelete}
+              disabled={deleteReport.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : null}
+              {deleteReport.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
