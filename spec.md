@@ -1,11 +1,10 @@
 # Specification
 
 ## Summary
-**Goal:** Downgrade all users with the 'General Coordinator' (coordenador geral) role to 'Coordinator' (coordenador) across the backend and user management UI.
+**Goal:** Elevate two specific users to the administrator role (`coordenador_geral`) in the backend so they can perform privileged actions like deleting users.
 
 **Planned changes:**
-- Run a backend migration that updates every user profile with the `generalCoordinator` role to `coordinator`, leaving all other roles and profile fields untouched.
-- Remove the 'Coordenador Geral' option from the role selection dropdown on the `/users` (User Management) page so it can no longer be assigned to new users.
-- Ensure the user list on `/users` displays previously 'Coordenador Geral' users as 'Coordenador'.
+- Add initialization/upgrade logic in the backend canister that assigns the `coordenador_geral` (or highest-privilege) role to `daniel@periniprojetos.com.br` and `danielperini.mc@viadutodasartes.org.br` on every canister upgrade.
+- Create a `migration.mo` file that updates the `userProfiles` stable state to apply the administrator role to both specified users while leaving all other user profiles unchanged.
 
-**User-visible outcome:** On the User Management page, no user appears with the 'Coordenador Geral' role, and the role dropdown no longer offers that option. All affected users are now shown and treated as 'Coordenador'.
+**User-visible outcome:** After the canister upgrade, both specified users will have full administrator privileges (e.g., ability to delete other users), while all other users retain their existing roles.

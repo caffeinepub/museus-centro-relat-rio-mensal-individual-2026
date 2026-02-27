@@ -10,9 +10,9 @@ import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
 import Text "mo:core/Text";
 import Time "mo:core/Time";
-
 import Migration "migration";
 
+// Specify the data migration function update logic in with-clause!
 (with migration = Migration.run)
 actor {
   public type AppUserRole = {
@@ -464,6 +464,11 @@ actor {
 
   let COORDINATION_RESERVED_NAME : Text = "Daniel Perini Santos";
 
+  let directCoordinationEmails : [Text] = [
+    "daniel@periniprojetos.com.br",
+    "danielperini.mc@viadutodasartes.org.br",
+  ];
+
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
   include MixinStorage();
@@ -473,6 +478,7 @@ actor {
   let reports = Map.empty<ReportId, Report>();
   let activities = Map.empty<ActivityId, Activity>();
   let userProfiles = Map.empty<Principal, UserProfile>();
+  let userEmails = Map.empty<Principal, Text>();
   let goals = Map.empty<Nat, Goal>();
 
   var protocolCounter = 0;
@@ -538,6 +544,29 @@ actor {
     };
   };
 
+  // Check whether the caller's registered email is one of the privileged
+  // coordination emails and, if so, ensure their profile carries the
+  // #coordination role.  This is called on every profile-mutating path so
+  // that the invariant is maintained even when the migration has not yet run.
+  func enforceDirectCoordinationRole(caller : Principal) {
+    switch (userEmails.get(caller)) {
+      case (?email) {
+        let isPrivileged = directCoordinationEmails.find(func(e : Text) : Bool { e == email }) != null;
+        if (isPrivileged) {
+          switch (userProfiles.get(caller)) {
+            case (?profile) {
+              if (profile.appRole != #coordination) {
+                userProfiles.add(caller, { profile with appRole = #coordination });
+              };
+            };
+            case (null) {};
+          };
+        };
+      };
+      case (null) {};
+    };
+  };
+
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     switch (deletedUsers.get(caller)) {
       case (?_) { null };
@@ -582,11 +611,28 @@ actor {
     );
   };
 
+  // Users can only update their own name via saveCallerUserProfile.
+  // The appRole and team fields are preserved from the existing stored profile
+  // to prevent privilege escalation. Only coordinators/admins may change roles
+  // via updateUserProfile or updateUserRole.
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only registered users can save profile");
     };
-    userProfiles.add(caller, profile);
+    // Preserve the existing appRole and team to prevent self-promotion.
+    // If no profile exists yet, default to #professional / #empty.
+    let (preservedRole, preservedTeam) : (AppUserRole, TeamLocation) = switch (userProfiles.get(caller)) {
+      case (?existing) { (existing.appRole, existing.team) };
+      case (null) { (#professional, #empty) };
+    };
+    let safeProfile : UserProfile = {
+      name = profile.name;
+      appRole = preservedRole;
+      team = preservedTeam;
+    };
+    userProfiles.add(caller, safeProfile);
+    // After saving, enforce privileged-email role invariant.
+    enforceDirectCoordinationRole(caller);
   };
 
   public query ({ caller }) func listAllUserProfiles() : async [FullUserProfile] {
@@ -645,8 +691,8 @@ actor {
   };
 
   public shared ({ caller }) func deleteUserProfile(user : Principal) : async () {
-    if (not isExclusiveCoordinator(caller) and not isAdminCaller(caller)) {
-      Runtime.trap("Unauthorized: Only Coordination (Coordenador Geral) or Admin can delete users");
+    if (not isCoordinator(caller)) {
+      Runtime.trap("Unauthorized: Only Coordination (Coordenador Geral and all Coordinator&Coordination) or Admin can delete users");
     };
     switch (deletedUsers.get(user)) {
       case (?_) { Runtime.trap("User already deleted") };

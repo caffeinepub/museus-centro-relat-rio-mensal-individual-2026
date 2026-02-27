@@ -1,55 +1,58 @@
 {
   "kind": "build_request",
-  "title": "Downgrade all 'General Coordinator' permissions to 'Coordinator'",
-  "projectName": "Museus Centro Reports",
+  "title": "Elevate permissions for two specific users to administrator role",
+  "projectName": "Museus Centro",
   "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "In the backend, update all existing user profiles that currently have the role 'generalCoordinator' (coordenador geral) and change their role to 'coordinator' (coordenador). This must affect every user with that role, not just a specific individual.",
+      "text": "In the backend, add initialization logic (or upgrade hook) that ensures users with the email identifiers 'daniel@periniprojetos.com.br' and 'danielperini.mc@viadutodasartes.org.br' are assigned the administrator role (e.g., 'coordenador_geral' or the highest-privilege role available in the system). This should run on canister upgrade so that their roles are updated even if they already exist in the userProfiles stable state.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-recent-5",
+          "msg-recent-6"
         ],
         "quotes": [
-          "em https://relatorio-museu-centro-mensal-jja.caffeine.xyz/users de todas as permissoes de coordenador geral para coordenador"
+          "faz o login mas seguem como coordenador e precisam de autorizacoes como por exemplo exlcuir usuario. apenas as autorizacoes sao necessarias",
+          "sim faca"
         ]
       },
       "acceptanceCriteria": [
-        "All users previously holding the 'generalCoordinator' role now have the 'coordinator' role in stable storage.",
-        "No user retains the 'generalCoordinator' role after the migration.",
-        "Users with other roles (e.g., 'professional', 'administration') are unaffected.",
-        "The migration is applied via migration.mo so that data persists across upgrades."
+        "After canister upgrade, the user profile for 'daniel@periniprojetos.com.br' has the administrator/coordenador_geral role.",
+        "After canister upgrade, the user profile for 'danielperini.mc@viadutodasartes.org.br' has the administrator/coordenador_geral role.",
+        "Both users can perform privileged actions such as deleting other users without receiving authorization errors.",
+        "Other existing users retain their original roles unchanged."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "On the User Management page (/users), verify that the role display and edit dropdown correctly reflects the updated roles — i.e., no user should appear as 'Coordenador Geral' after the backend migration. If the 'Coordenador Geral' option still appears in the role selection dropdown, remove it or disable it so new users cannot be assigned that role.",
-      "target": "frontend",
+      "text": "Generate a migration.mo that upgrades existing userProfiles stable state, applying the administrator role to the two specified users ('daniel@periniprojetos.com.br' and 'danielperini.mc@viadutodasartes.org.br') while preserving all other user profile data unchanged.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-recent-5",
+          "msg-recent-6"
         ],
         "quotes": [
-          "em https://relatorio-museu-centro-mensal-jja.caffeine.xyz/users de todas as permissoes de coordenador geral para coordenador"
+          "faz o login mas seguem como coordenador e precisam de autorizacoes como por exemplo exlcuir usuario. apenas as autorizacoes sao necessarias"
         ]
       },
       "acceptanceCriteria": [
-        "The /users page shows no users with 'Coordenador Geral' as their displayed role.",
-        "The role edit dropdown in UserManagementPage does not offer 'Coordenador Geral' as a selectable option.",
-        "All previously 'Coordenador Geral' users now display as 'Coordenador' in the user list."
+        "migration.mo correctly maps the two target users to the administrator role.",
+        "All other user profiles remain identical after migration.",
+        "No data loss occurs for any user profile during migration."
       ]
     }
   ],
   "constraints": [
-    "Only users with the 'generalCoordinator' role must be changed; all other roles must remain intact.",
-    "Migration must preserve all other user profile fields (name, team, status, etc.)."
+    "Only the roles of 'daniel@periniprojetos.com.br' and 'danielperini.mc@viadutodasartes.org.br' should be changed — no other user data should be modified.",
+    "Do not alter any frontend files."
   ],
   "nonGoals": [
-    "Adding new roles or modifying the role hierarchy beyond this specific downgrade.",
-    "Changing permissions or access rules for the 'coordinator' role itself.",
-    "Modifying any other page besides /users and the backend migration."
+    "Adding new UI for role management.",
+    "Changing the permission model or role hierarchy.",
+    "Modifying any other user's role or profile data."
   ],
   "imageRequirements": {
     "required": [],

@@ -1,35 +1,28 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-27T18:53:49.493Z",
+  "generatedAt": "2026-02-27T19:50:38.052Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
     "total": 2,
-    "implemented": 1,
+    "implemented": 0,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "In the backend, update all existing user profiles that currently have the role 'generalCoordinator' (coordenador geral) and change their role to 'coordinator' (coordenador). This must affect every user with that role, not just a specific individual.",
+        "summary": "In the backend, add initialization logic (or upgrade hook) that ensures users with the email identifiers 'daniel@periniprojetos.com.br' and 'danielperini.mc@viadutodasartes.org.br' are assigned the administrator role (e.g., 'coordenador_geral' or the highest-privilege role available in the system). This should run on canister upgrade so that their roles are updated even if they already exist in the userProfiles stable state.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
         "id": "REQ-2",
-        "summary": "On the User Management page (/users), verify that the role display and edit dropdown correctly reflects the updated roles — i.e., no user should appear as 'Coordenador Geral' after the backend migration. If the 'Coordenador Geral' option still appears in the role selection dropdown, remove it or disable it so new users cannot be assigned that role.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/UserManagementPage.tsx",
-          "frontend/src/utils/labels.ts",
-          "frontend/src/types.ts"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/UserManagementPage.tsx",
-          "frontend/src/utils/labels.ts"
-        ]
+        "summary": "Generate a migration.mo that upgrades existing userProfiles stable state, applying the administrator role to the two specified users ('daniel@periniprojetos.com.br' and 'danielperini.mc@viadutodasartes.org.br') while preserving all other user profile data unchanged.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       }
     ]
   },
@@ -38,15 +31,11 @@
     "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
-    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
     "frontend/src/backend.d.ts",
     "frontend/src/backend.ts",
-    "frontend/src/components/Sidebar.tsx",
     "frontend/src/declarations/backend.did.d.ts",
     "frontend/src/declarations/backend.did.js",
-    "frontend/src/pages/UserManagementPage.tsx",
-    "frontend/src/utils/labels.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

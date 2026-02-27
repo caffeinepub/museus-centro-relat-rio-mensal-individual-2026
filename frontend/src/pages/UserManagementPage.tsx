@@ -8,6 +8,7 @@ import {
   useDeleteUserProfile,
   useApproveUser,
   useRejectUser,
+  useGetCallerUserProfile,
 } from '../hooks/useQueries';
 import { FullUserProfile, AppUserRole, TeamLocation, ApprovalStatus } from '../backend';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,7 @@ const APPROVAL_COLORS: Record<ApprovalStatus, string> = {
 
 export default function UserManagementPage() {
   const { data: users = [], isLoading } = useAllUserProfiles();
+  const { data: currentUserProfile } = useGetCallerUserProfile();
   const updateProfile = useUpdateUserProfile();
   const deleteProfile = useDeleteUserProfile();
   const approveUser = useApproveUser();
@@ -68,6 +70,12 @@ export default function UserManagementPage() {
   const [editingUser, setEditingUser] = useState<FullUserProfile | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; appRole: AppUserRole; team: TeamLocation } | null>(null);
   const [deletingUser, setDeletingUser] = useState<FullUserProfile | null>(null);
+
+  // Allow delete for administration, coordination, and coordinator roles
+  const canDelete =
+    currentUserProfile?.appRole === AppUserRole.administration ||
+    currentUserProfile?.appRole === AppUserRole.coordination ||
+    currentUserProfile?.appRole === AppUserRole.coordinator;
 
   const filtered = users.filter(u =>
     u.name.toLowerCase().includes(search.toLowerCase())
@@ -224,14 +232,16 @@ export default function UserManagementPage() {
                       >
                         <Edit className="w-3 h-3" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-700 border-red-300 hover:bg-red-50"
-                        onClick={() => setDeletingUser(user)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                      {canDelete && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-700 border-red-300 hover:bg-red-50"
+                          onClick={() => setDeletingUser(user)}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>

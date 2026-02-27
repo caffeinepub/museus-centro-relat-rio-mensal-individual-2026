@@ -1,33 +1,6 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Downgrade all 'General Coordinator' permissions to 'Coordinator' - Frontend",
-  "requirements": [
-    {
-      "id": "REQ-2",
-      "summary": "Remove 'Coordenador Geral' from User Management page role dropdown and verify updated role display",
-      "acceptanceCriteria": [
-        "The /users page shows no users with 'Coordenador Geral' as their displayed role.",
-        "The role edit dropdown in UserManagementPage does not offer 'Coordenador Geral' as a selectable option.",
-        "All previously 'Coordenador Geral' users now display as 'Coordenador' in the user list."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/pages/UserManagementPage.tsx",
-          "operation": "modify",
-          "description": "Review the role dropdown options in the edit user dialog. If 'Coordenador Geral' or 'generalCoordinator' appears as an option, remove it from the dropdown. Ensure the dropdown only offers valid roles: 'professional', 'coordinator', 'coordination', and 'administration'. Verify that the user role display correctly maps backend AppUserRole values to Portuguese labels using the label utility functions."
-        },
-        {
-          "path": "frontend/src/utils/labels.ts",
-          "operation": "modify",
-          "description": "Review the role label mapping functions (if they exist). If there is a label for 'generalCoordinator' or 'Coordenador Geral', remove it or ensure it is not referenced. Confirm that 'coordinator' maps to 'Coordenador' and that no mapping exists for a deprecated 'generalCoordinator' role. This ensures consistent role display across the application."
-        },
-        {
-          "path": "frontend/src/types.ts",
-          "operation": "modify",
-          "description": "Review the AppUserRole enum definition. If 'generalCoordinator' exists as an enum value, remove it to prevent TypeScript from allowing its use. Ensure the enum only contains: 'professional', 'coordinator', 'coordination', and 'administration'. This aligns the frontend type system with the backend after the role migration."
-        }
-      ]
-    }
-  ]
+  "title": "Elevate permissions for two specific users to administrator role",
+  "requirements": []
 }

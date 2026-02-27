@@ -1,27 +1,4 @@
 {
   "kind": "feature_evidence_report",
-  "features": [
-    {
-      "featureId": "feature-on-the-user-management-page-users-verify-that-the-role-display-and-edit-dropdown-correctly-reflects-the-updated-roles-i-e-no-user-should-appear-as-coordenador-geral-after-the-backend-migration-if-the-coordenador-geral-option-still-appears-in-the-role-selection-dropdown-remove-it-or-disable-it-so-new-users-cannot-be-assigned-that-role",
-      "featureTitle": "On the User Management page (/users), verify that the role display and edit dropdown correctly reflects the updated roles — i.e., no user should appear as 'Coordenador Geral' after the backend migration. If the 'Coordenador Geral' option still appears in the role selection dropdown, remove it or disable it so new users cannot be assigned that role.",
-      "files": [
-        "frontend/src/pages/UserManagementPage.tsx",
-        "frontend/src/utils/labels.ts"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0",
-        "user-approval@3.0.0"
-      ],
-      "testIds": [
-        "REQ-2"
-      ],
-      "confidence": "high"
-    }
-  ]
+  "features": []
 }

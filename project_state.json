@@ -1,40 +1,41 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Web application for museum reporting with user management. User permissions are being managed at /users route.",
+  "summary": "Project involves a user management system with role-based permissions. Two specific users (daniel@periniprojetos.com.br and danielperini.mc@viadutodasartes.org.br) need their roles elevated from coordinator to administrator to gain full permissions including user deletion.",
   "architectural_notes": [
-    "User management and permissions handled at /users route"
+    "Sistema possui roles diferenciadas: coordenador (permissões limitadas) e administrador (permissões completas, incluindo exclusão de usuários)"
   ],
-  "known_issues": [],
-  "isFixRequest": false,
-  "existing_features": [
-    {
-      "id": "feature-on-the-user-management-page-users-verify-that-the-role-display-and-edit-dropdown-correctly-reflects-the-updated-roles-i-e-no-user-should-appear-as-coordenador-geral-after-the-backend-migration-if-the-coordenador-geral-option-still-appears-in-the-role-selection-dropdown-remove-it-or-disable-it-so-new-users-cannot-be-assigned-that-role",
-      "title": "On the User Management page (/users), verify that the role display and edit dropdown correctly reflects the updated roles — i.e., no user should appear as 'Coordenador Geral' after the backend migration. If the 'Coordenador Geral' option still appears in the role selection dropdown, remove it or disable it so new users cannot be assigned that role.",
-      "reqIds": [
-        "REQ-2"
-      ],
-      "version": 1
-    }
+  "known_issues": [
+    "Usuários daniel@periniprojetos.com.br e danielperini.mc@viadutodasartes.org.br fazem login mas ficam com role de coordenador em vez de administrador"
   ],
+  "isFixRequest": true,
+  "existing_features": [],
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Change all user permissions from 'coordenador geral' to 'coordenador' in the users page",
+      "summary": "Elevar permissões dos usuários daniel@periniprojetos.com.br e danielperini.mc@viadutodasartes.org.br de coordenador para administrador",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "In the backend, update all existing user profiles that currently have the role 'generalCoordinator' (coordenador geral) and change their role to 'coordinator' (coordenador). This must affect every user with that role, not just a specific individual.",
+      "summary": "In the backend, add initialization logic (or upgrade hook) that ensures users with the email identifiers 'daniel@periniprojetos.com.br' and 'danielperini.mc@viadutodasartes.org.br' are assigned the administrator role (e.g., 'coordenador_geral' or the highest-privilege role available in the system). This should run on canister upgrade so that their roles are updated even if they already exist in the userProfiles stable state.",
       "reqIds": [
         "REQ-1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Generate a migration.mo that upgrades existing userProfiles stable state, applying the administrator role to the two specified users ('daniel@periniprojetos.com.br' and 'danielperini.mc@viadutodasartes.org.br') while preserving all other user profile data unchanged.",
+      "reqIds": [
+        "REQ-2"
       ],
       "status": "pending"
     }
   ],
   "gameProjectType": "none",
-  "projectName": "relatorio-museu-centro-mensal",
+  "projectName": "Museus Centro",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }
